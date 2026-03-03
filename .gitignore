@@ -1,0 +1,19 @@
+# Environment
+.env
+
+# Logs
+logs/*.log
+
+# Stream data
+stream_data/*
+!stream_data/.gitkeep
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
