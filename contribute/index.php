@@ -674,7 +674,7 @@ body {
             <h1>Creator Studio</h1>
             <div class="subtitle">Manage your streams and earnings</div>
         </div>
-        <button class="btn" onclick="openStudio()"><i class="fa-solid fa-broadcast-tower"></i> Go Live</button>
+        <a href="go_live.php" class="btn"><i class="fa-solid fa-broadcast-tower"></i> Go Live</a>
     </div>
 
     <div class="stats-grid">
@@ -809,7 +809,7 @@ function render() {
                     <span class="smartgrid-rate">${s.revenue_mode === 'smartgrid' ? s.smartgrid_multiplier + 'x' : '$' + s.price_per_minute}</span>
                 </div>
                 <div class="stream-actions">
-                    <button class="btn btn-sm ${s.is_live ? 'btn-danger' : 'btn-success'}" onclick="goLive(${s.id})"><i class="fa-solid fa-${s.is_live ? 'stop' : 'broadcast-tower'}"></i></button>
+                    <a href="go_live.php?id=${s.id}" class="btn btn-sm ${s.is_live ? 'btn-danger' : 'btn-success'}"><i class="fa-solid fa-${s.is_live ? 'stop' : 'broadcast-tower'}"></i></a>
                     <button class="btn btn-outline btn-sm" onclick="editStream(${s.id})"><i class="fa-solid fa-pen"></i></button>
                     <button class="btn btn-outline btn-sm" onclick="delStream(${s.id})"><i class="fa-solid fa-trash"></i></button>
                 </div>

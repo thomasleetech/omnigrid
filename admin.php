@@ -339,7 +339,7 @@ $payoutMultiplier = floatval($config['payout_multiplier'] ?? 1.0);
                                 <td class="rate-display">$<?= number_format($rate['rate_cents_per_min'] / 100, 4) ?></td>
                                 <td class="earnings-display">$<?= number_format(($s['total_earnings_cents'] ?? 0) / 100, 2) ?></td>
                                 <td>
-                                    <a href="watch.php?id=<?= $s['id'] ?>" class="btn btn-sm"><i class="fa fa-eye"></i></a>
+                                    <a href="live.php?id=<?= $s['id'] ?>" class="btn btn-sm"><i class="fa fa-eye"></i></a>
                                 </td>
                             </tr>
                             <?php endforeach; ?>

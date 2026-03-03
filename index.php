@@ -729,8 +729,8 @@ a { text-decoration: none; color: inherit; }
     </button>
     <nav class="nav" id="nav">
         <a href="globe.php"><i class="fa-solid fa-earth-americas"></i> Globe</a>
-        <a href="#streams"><i class="fa-solid fa-play"></i> Browse</a>
-        <a href="calculator.html"><i class="fa-solid fa-calculator"></i> Earnings</a>
+        <a href="watch.php"><i class="fa-solid fa-play"></i> Browse</a>
+        <a href="calculator.php"><i class="fa-solid fa-calculator"></i> Earnings</a>
         <a href="login.php"><i class="fa-solid fa-arrow-right-to-bracket"></i> Login</a>
         <a href="contribute/" class="btn"><i class="fa-solid fa-broadcast-tower"></i> Go Live</a>
     </nav>
@@ -750,7 +750,7 @@ a { text-decoration: none; color: inherit; }
         <p>Discover authentic moments from creators around the world. Watch, connect, and earn with the smartGrid engine.</p>
         <div class="hero-btns">
             <a href="globe.php" class="btn btn-lg"><i class="fa-solid fa-earth-americas"></i> Spin the Globe</a>
-            <a href="#streams" class="btn btn-outline btn-lg"><i class="fa-solid fa-play"></i> Browse Streams</a>
+            <a href="watch.php" class="btn btn-outline btn-lg"><i class="fa-solid fa-play"></i> Browse Streams</a>
         </div>
         <div class="hero-stats">
             <div class="hero-stat">

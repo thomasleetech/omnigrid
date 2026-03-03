@@ -1,543 +1,583 @@
 <?php
 session_start();
-if (empty($_SESSION['user_id'])) {
-    header('Location: ../login.php');
-    exit;
-}
-
+if (empty($_SESSION['user_id'])) { header('Location: ../login.php'); exit; }
 require_once '../includes/db.php';
+$uid = $_SESSION['user_id'];
+$stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+$stmt->execute([$uid]);
+$user = $stmt->fetch();
 
-$stream_id = (int)($_GET['id'] ?? 0);
-if (!$stream_id) {
-    header('Location: ./');
-    exit;
-}
+// Get user's streams for the stream selector
+$stmt = $pdo->prepare("SELECT id, title, type, vibe_tag FROM streams WHERE user_id = ? AND is_active = 1 ORDER BY title");
+$stmt->execute([$uid]);
+$streams = $stmt->fetchAll();
 
-$stmt = $pdo->prepare("SELECT * FROM streams WHERE id = ? AND user_id = ?");
-$stmt->execute([$stream_id, $_SESSION['user_id']]);
-$stream = $stmt->fetch();
-
-if (!$stream) {
-    header('Location: ./');
-    exit;
-}
+// If a specific stream ID was passed, pre-select it
+$preselect = (int)($_GET['id'] ?? 0);
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Go Live | OmniGrid</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #0a0a0f;
-            color: #e0e0e0;
-            min-height: 100vh;
-        }
-        .header {
-            background: #12121a;
-            padding: 0.75rem 1.5rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #2a2a3e;
-        }
-        .logo { font-size: 1.25rem; font-weight: 700; color: #fff; text-decoration: none; }
-        .logo span { color: #6366f1; }
-        .btn {
-            background: #6366f1; color: #fff; border: none; padding: 0.6rem 1.2rem;
-            border-radius: 6px; cursor: pointer; font-size: 0.9rem; text-decoration: none;
-            display: inline-flex; align-items: center; gap: 0.5rem;
-        }
-        .btn:hover { background: #4f46e5; }
-        .btn-outline { background: transparent; border: 1px solid #3a3a4e; }
-        .btn-live { background: #ef4444; }
-        .btn-live:hover { background: #dc2626; }
-        .btn-stop { background: #666; }
-        
-        .main {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
-        h1 { margin-bottom: 0.5rem; }
-        .subtitle { color: #888; margin-bottom: 2rem; }
-        
-        .studio {
-            display: grid;
-            grid-template-columns: 1fr 300px;
-            gap: 1.5rem;
-        }
-        
-        .preview-container {
-            background: #000;
-            border-radius: 12px;
-            overflow: hidden;
-            position: relative;
-            aspect-ratio: 16/9;
-        }
-        #preview {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transform: scaleX(-1);
-        }
-        .preview-overlay {
-            position: absolute;
-            top: 1rem;
-            left: 1rem;
-            display: flex;
-            gap: 0.5rem;
-        }
-        .live-badge {
-            background: #ef4444;
-            color: #fff;
-            padding: 0.3rem 0.75rem;
-            border-radius: 4px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            display: none;
-            align-items: center;
-            gap: 0.3rem;
-        }
-        .live-badge.active { display: flex; }
-        .live-badge::before {
-            content: '';
-            width: 8px;
-            height: 8px;
-            background: #fff;
-            border-radius: 50%;
-            animation: pulse 1s infinite;
-        }
-        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
-        
-        .timer {
-            background: rgba(0,0,0,0.7);
-            padding: 0.3rem 0.75rem;
-            border-radius: 4px;
-            font-size: 0.85rem;
-            font-family: monospace;
-        }
-        
-        .controls {
-            background: #12121a;
-            border: 1px solid #2a2a3e;
-            border-radius: 12px;
-            padding: 1.5rem;
-        }
-        .controls h2 {
-            font-size: 1rem;
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        .controls h2 i { color: #6366f1; }
-        
-        .control-group {
-            margin-bottom: 1.25rem;
-        }
-        .control-group label {
-            display: block;
-            font-size: 0.85rem;
-            color: #888;
-            margin-bottom: 0.4rem;
-        }
-        .control-group select {
-            width: 100%;
-            background: #0a0a0f;
-            border: 1px solid #2a2a3e;
-            border-radius: 6px;
-            padding: 0.6rem;
-            color: #e0e0e0;
-            font-size: 0.9rem;
-        }
-        
-        .meter {
-            height: 8px;
-            background: #1a1a2e;
-            border-radius: 4px;
-            overflow: hidden;
-        }
-        .meter-fill {
-            height: 100%;
-            background: #10b981;
-            width: 0%;
-            transition: width 0.1s;
-        }
-        
-        .go-live-btn {
-            width: 100%;
-            padding: 1rem;
-            font-size: 1rem;
-            margin-top: 1rem;
-        }
-        
-        .status-card {
-            background: #1a1a2e;
-            border-radius: 8px;
-            padding: 1rem;
-            margin-top: 1rem;
-        }
-        .status-card h3 {
-            font-size: 0.85rem;
-            color: #888;
-            margin-bottom: 0.5rem;
-        }
-        .status-card .value {
-            font-size: 1.5rem;
-            font-weight: 600;
-        }
-        .status-card .value.live { color: #ef4444; }
-        
-        .error-msg {
-            background: rgba(239,68,68,0.1);
-            border: 1px solid #ef4444;
-            color: #ef4444;
-            padding: 1rem;
-            border-radius: 8px;
-            margin-bottom: 1rem;
-            display: none;
-        }
-        
-        .permission-prompt {
-            position: absolute;
-            inset: 0;
-            background: rgba(0,0,0,0.9);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            padding: 2rem;
-        }
-        .permission-prompt i { font-size: 3rem; color: #6366f1; margin-bottom: 1rem; }
-        .permission-prompt h2 { margin-bottom: 0.5rem; }
-        .permission-prompt p { color: #888; margin-bottom: 1.5rem; }
-        .permission-prompt.hidden { display: none; }
-        
-        @media (max-width: 800px) {
-            .studio { grid-template-columns: 1fr; }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Go Live — OmniGrid</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+:root {
+    --bg: #08080d;
+    --surface: #111118;
+    --surface-2: #1a1a24;
+    --border: #25253a;
+    --border-light: #2f2f4a;
+    --text: #f0f0f5;
+    --text-secondary: #b0b0c8;
+    --muted: #6b6b85;
+    --primary: #6366f1;
+    --primary-light: #818cf8;
+    --primary-glow: rgba(99, 102, 241, 0.15);
+    --success: #10b981;
+    --success-glow: rgba(16, 185, 129, 0.12);
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --gradient-primary: linear-gradient(135deg, #6366f1, #a855f7);
+    --radius: 12px;
+    --radius-sm: 8px;
+    --radius-pill: 100px;
+    --shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+    --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: #000;
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+}
+
+.studio { display: grid; grid-template-columns: 1fr 340px; height: 100vh; }
+
+/* Preview */
+.preview { position: relative; background: #000; display: flex; align-items: center; justify-content: center; }
+#video { width: 100%; height: 100%; object-fit: contain; }
+
+.preview-overlay {
+    position: absolute; top: 0; left: 0; right: 0;
+    padding: 1rem 1.25rem; display: flex; justify-content: space-between; align-items: flex-start;
+    background: linear-gradient(rgba(0,0,0,0.6), transparent); pointer-events: none;
+}
+.preview-overlay > * { pointer-events: auto; }
+
+.top-left { display: flex; align-items: center; gap: 0.65rem; }
+.back-btn {
+    background: rgba(255,255,255,0.08); backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.1); color: #fff;
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 0.85rem; transition: var(--transition); text-decoration: none;
+}
+.back-btn:hover { background: rgba(255,255,255,0.15); }
+
+.live-ind {
+    background: rgba(0,0,0,0.5); backdrop-filter: blur(8px);
+    padding: 0.3rem 0.85rem; border-radius: var(--radius-pill);
+    font-size: 0.8rem; font-weight: 700; color: var(--muted);
+    display: flex; align-items: center; gap: 0.4rem;
+}
+.live-ind.active { background: var(--danger); color: #fff; }
+.live-ind::before {
+    content: ''; width: 7px; height: 7px; background: currentColor; border-radius: 50%;
+}
+.live-ind.active::before { background: #fff; animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.4} }
+
+.top-right { display: flex; gap: 0.5rem; align-items: center; }
+.pill {
+    background: rgba(0,0,0,0.5); backdrop-filter: blur(8px);
+    padding: 0.3rem 0.75rem; border-radius: var(--radius-pill);
+    font-size: 0.8rem; display: flex; align-items: center; gap: 0.3rem;
+}
+.pill.viewers i { color: var(--primary-light); }
+.pill.duration { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+.pill.earnings { color: var(--success); font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+
+/* Controls Bar */
+.controls {
+    position: absolute; bottom: 2rem; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 0.75rem; align-items: center;
+}
+.ctrl-btn {
+    width: 50px; height: 50px; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.15);
+    cursor: pointer; font-size: 1.05rem;
+    background: rgba(255,255,255,0.08); backdrop-filter: blur(8px);
+    color: #fff; transition: var(--transition);
+    display: flex; align-items: center; justify-content: center;
+}
+.ctrl-btn:hover { background: rgba(255,255,255,0.15); }
+.ctrl-btn.muted { color: var(--danger); border-color: rgba(239,68,68,0.3); }
+
+.live-toggle {
+    width: 64px; height: 64px; border-radius: 50%;
+    background: var(--danger); border: 3px solid rgba(255,255,255,0.2);
+    cursor: pointer; font-size: 1.4rem; color: #fff;
+    box-shadow: 0 4px 24px rgba(239, 68, 68, 0.35);
+    transition: var(--transition);
+    display: flex; align-items: center; justify-content: center;
+}
+.live-toggle:hover { box-shadow: 0 6px 32px rgba(239, 68, 68, 0.5); transform: scale(1.05); }
+.live-toggle.streaming {
+    background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2);
+    box-shadow: none;
+}
+.live-toggle.streaming:hover { background: rgba(255,255,255,0.15); }
+
+/* Placeholder */
+.placeholder { position: absolute; text-align: center; color: var(--muted); }
+.ph-icon {
+    width: 80px; height: 80px; background: var(--surface); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2rem; margin: 0 auto 1rem; border: 1px solid var(--border);
+}
+
+/* Sidebar */
+.sidebar {
+    background: var(--surface); border-left: 1px solid var(--border);
+    display: flex; flex-direction: column; height: 100vh;
+}
+.sidebar-header {
+    padding: 1rem 1.25rem; border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+}
+.sidebar-header h2 { font-size: 0.95rem; font-weight: 600; }
+
+/* Room Code */
+.room-section { padding: 1.25rem; border-bottom: 1px solid var(--border); }
+.room-display {
+    background: var(--bg); border: 1px solid var(--border);
+    padding: 1rem; border-radius: var(--radius-sm); text-align: center;
+}
+.room-label {
+    font-size: 0.6rem; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.12em; font-weight: 600;
+}
+.room-code {
+    font-family: 'JetBrains Mono', monospace; font-size: 1.8rem; font-weight: 700;
+    color: var(--primary-light); letter-spacing: 0.15em; margin: 0.15rem 0;
+}
+.room-url { font-size: 0.6rem; color: var(--muted); word-break: break-all; margin-top: 0.25rem; }
+.copy-btn {
+    width: 100%; background: transparent; border: 1px solid var(--border);
+    color: var(--text-secondary); padding: 0.55rem; border-radius: var(--radius-sm);
+    cursor: pointer; font-family: inherit; font-size: 0.82rem; font-weight: 500;
+    margin-top: 0.75rem; transition: var(--transition);
+    display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+}
+.copy-btn:hover { border-color: var(--border-light); color: var(--text); }
+
+/* Settings */
+.settings { padding: 1.25rem; border-bottom: 1px solid var(--border); }
+.form-group { margin-bottom: 0.85rem; }
+.form-group:last-child { margin-bottom: 0; }
+.form-group label {
+    display: block; font-size: 0.78rem; color: var(--text-secondary);
+    margin-bottom: 0.3rem; font-weight: 500;
+}
+.form-group input, .form-group select {
+    width: 100%; background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 0.55rem 0.75rem;
+    color: var(--text); font-family: inherit; font-size: 0.85rem;
+    transition: var(--transition);
+}
+.form-group input:focus, .form-group select:focus {
+    border-color: var(--primary); outline: none;
+    box-shadow: 0 0 0 3px var(--primary-glow);
+}
+
+/* Rate Display */
+.rate-section { padding: 1.25rem; border-bottom: 1px solid var(--border); }
+.rate-card {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 1rem; text-align: center;
+}
+.rate-label { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+.rate-value {
+    font-family: 'JetBrains Mono', monospace; font-size: 1.4rem; font-weight: 700;
+    background: var(--gradient-primary); -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent; margin: 0.15rem 0;
+}
+.rate-sub { font-size: 0.72rem; color: var(--text-secondary); }
+
+/* Chat */
+.chat { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.chat-head {
+    padding: 0.7rem 1.25rem; border-bottom: 1px solid var(--border);
+    font-size: 0.82rem; font-weight: 600; color: var(--text-secondary);
+    display: flex; align-items: center; gap: 0.4rem;
+}
+.chat-msgs {
+    flex: 1; overflow-y: auto; padding: 0.85rem 1.25rem;
+    font-size: 0.82rem; display: flex; flex-direction: column; gap: 0.4rem;
+}
+.chat-msgs::-webkit-scrollbar { width: 3px; }
+.chat-msgs::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.msg { line-height: 1.5; }
+.msg .name { color: var(--primary-light); font-weight: 600; font-size: 0.78rem; }
+.msg.system { color: var(--muted); font-size: 0.78rem; font-style: italic; }
+.chat-input {
+    padding: 0.65rem 0.85rem; border-top: 1px solid var(--border);
+    display: flex; gap: 0.35rem;
+}
+.chat-input input {
+    flex: 1; background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 0.5rem 0.75rem;
+    color: var(--text); font-family: inherit; font-size: 0.82rem;
+}
+.chat-input input:focus { outline: none; border-color: var(--primary); }
+.chat-input input::placeholder { color: var(--muted); }
+.chat-input button {
+    background: var(--primary); border: none; color: #fff;
+    width: 34px; border-radius: var(--radius-sm); cursor: pointer;
+    font-size: 0.75rem; transition: var(--transition);
+    display: flex; align-items: center; justify-content: center;
+}
+.chat-input button:hover { background: var(--primary-light); }
+
+/* Toasts */
+#toasts { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%); z-index: 2000; }
+.toast {
+    background: var(--surface); border: 1px solid var(--border);
+    padding: 0.6rem 1.25rem; border-radius: var(--radius-sm);
+    font-size: 0.85rem; box-shadow: var(--shadow);
+    animation: fadeUp 0.3s ease-out;
+    display: flex; align-items: center; gap: 0.4rem;
+}
+@keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } }
+
+@media (max-width: 900px) {
+    .studio { grid-template-columns: 1fr; grid-template-rows: 45vh 1fr; }
+    .sidebar { border-left: none; border-top: 1px solid var(--border); height: auto; overflow-y: auto; }
+    .controls { bottom: 1rem; }
+}
+</style>
 </head>
 <body>
-    <header class="header">
-        <a href="../" class="logo">Omni<span>Grid</span></a>
-        <a href="./" class="btn btn-outline"><i class="fa fa-arrow-left"></i> Dashboard</a>
-    </header>
-    
-    <main class="main">
-        <h1><?= htmlspecialchars($stream['title']) ?></h1>
-        <p class="subtitle">Browser Streaming Studio</p>
-        
-        <div class="error-msg" id="error"></div>
-        
-        <div class="studio">
-            <div class="preview-container">
-                <video id="preview" autoplay muted playsinline></video>
-                <div class="preview-overlay">
-                    <div class="live-badge" id="liveBadge">LIVE</div>
-                    <div class="timer" id="timer">00:00:00</div>
-                </div>
-                <div class="permission-prompt" id="permissionPrompt">
-                    <i class="fa fa-video"></i>
-                    <h2>Camera Access Required</h2>
-                    <p>Click below to allow camera and microphone access</p>
-                    <button class="btn" onclick="requestCamera()">
-                        <i class="fa fa-camera"></i> Enable Camera
-                    </button>
-                </div>
+
+<div class="studio">
+    <div class="preview">
+        <video id="video" autoplay muted playsinline></video>
+        <div class="placeholder" id="ph">
+            <div class="ph-icon"><i class="fa-solid fa-video"></i></div>
+            <p>Initializing camera...</p>
+        </div>
+
+        <div class="preview-overlay">
+            <div class="top-left">
+                <a href="./" class="back-btn"><i class="fa-solid fa-arrow-left"></i></a>
+                <div class="live-ind" id="liveInd">Offline</div>
             </div>
-            
-            <div class="controls">
-                <h2><i class="fa fa-sliders-h"></i> Stream Settings</h2>
-                
-                <div class="control-group">
-                    <label>Camera</label>
-                    <select id="videoSource"></select>
-                </div>
-                
-                <div class="control-group">
-                    <label>Microphone</label>
-                    <select id="audioSource"></select>
-                </div>
-                
-                <div class="control-group">
-                    <label>Audio Level</label>
-                    <div class="meter">
-                        <div class="meter-fill" id="audioMeter"></div>
-                    </div>
-                </div>
-                
-                <div class="control-group">
-                    <label>Quality</label>
-                    <select id="quality">
-                        <option value="720">720p (Recommended)</option>
-                        <option value="1080">1080p</option>
-                        <option value="480">480p (Low bandwidth)</option>
-                    </select>
-                </div>
-                
-                <button class="btn btn-live go-live-btn" id="goLiveBtn" onclick="toggleStream()">
-                    <i class="fa fa-broadcast-tower"></i> Go Live
-                </button>
-                
-                <div class="status-card">
-                    <h3>Status</h3>
-                    <div class="value" id="statusText">Ready</div>
-                </div>
-                
-                <div class="status-card">
-                    <h3>Viewers</h3>
-                    <div class="value" id="viewerCount">0</div>
-                </div>
+            <div class="top-right">
+                <div class="pill viewers"><i class="fa-solid fa-eye"></i> <span id="vc">0</span></div>
+                <div class="pill duration" id="duration">00:00:00</div>
+                <div class="pill earnings" id="earningsPill">$0.00</div>
             </div>
         </div>
-    </main>
-    
-    <script>
-        const streamId = <?= $stream_id ?>;
-        let mediaStream = null;
-        let mediaRecorder = null;
-        let isLive = false;
-        let startTime = null;
-        let timerInterval = null;
-        let audioContext = null;
-        let analyser = null;
-        
-        // Request camera on load
-        window.onload = () => requestCamera();
-        
-        async function requestCamera() {
-            try {
-                const quality = document.getElementById('quality').value;
-                const constraints = {
-                    video: {
-                        width: { ideal: quality === '1080' ? 1920 : quality === '720' ? 1280 : 854 },
-                        height: { ideal: quality === '1080' ? 1080 : quality === '720' ? 720 : 480 },
-                        facingMode: 'user'
-                    },
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: true
-                    }
-                };
-                
-                mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-                document.getElementById('preview').srcObject = mediaStream;
-                document.getElementById('permissionPrompt').classList.add('hidden');
-                
-                // Populate device lists
-                await populateDevices();
-                
-                // Setup audio meter
-                setupAudioMeter();
-                
-            } catch (err) {
-                showError('Camera access denied. Please allow camera permissions and reload.');
-                console.error(err);
+
+        <div class="controls">
+            <button class="ctrl-btn" onclick="flipCam()" title="Flip Camera"><i class="fa-solid fa-arrows-rotate"></i></button>
+            <button class="ctrl-btn" onclick="toggleScreen()" title="Share Screen"><i class="fa-solid fa-display"></i></button>
+            <button class="live-toggle" id="liveBtn" onclick="toggleLive()" title="Go Live"><i class="fa-solid fa-circle"></i></button>
+            <button class="ctrl-btn" id="micBtn" onclick="toggleMic()" title="Toggle Mic"><i class="fa-solid fa-microphone" id="micIcon"></i></button>
+            <button class="ctrl-btn" id="camBtn" onclick="toggleCam()" title="Toggle Camera"><i class="fa-solid fa-video" id="camIcon"></i></button>
+        </div>
+    </div>
+
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h2>Stream Studio</h2>
+        </div>
+
+        <div class="room-section">
+            <div class="room-display">
+                <div class="room-label">Share Room Code</div>
+                <div class="room-code" id="roomCode">------</div>
+                <div class="room-url" id="roomUrl"></div>
+            </div>
+            <button class="copy-btn" onclick="copyLink()"><i class="fa-solid fa-copy"></i> Copy Share Link</button>
+        </div>
+
+        <div class="settings">
+            <div class="form-group">
+                <label>Stream</label>
+                <select id="streamSelect">
+                    <option value="">Quick stream (no saved stream)</option>
+                    <?php foreach ($streams as $s): ?>
+                    <option value="<?= $s['id'] ?>" <?= $s['id'] === $preselect ? 'selected' : '' ?>><?= htmlspecialchars($s['title']) ?> (<?= $s['type'] ?>)</option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Title</label>
+                <input type="text" id="liveTitle" placeholder="What are you streaming?">
+            </div>
+            <div class="form-group">
+                <label>Category</label>
+                <select id="liveType">
+                    <option value="public">Public</option>
+                    <option value="lifestyle">Lifestyle</option>
+                    <option value="nsfw">NSFW</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="rate-section">
+            <div class="rate-card">
+                <div class="rate-label">smartGrid Rate</div>
+                <div class="rate-value" id="rateDisplay">0.50&cent;/min</div>
+                <div class="rate-sub" id="rateHourly">$0.30/hr estimated</div>
+            </div>
+        </div>
+
+        <div class="chat">
+            <div class="chat-head"><i class="fa-solid fa-comments"></i> Chat</div>
+            <div class="chat-msgs" id="msgs">
+                <div class="msg system">Waiting for viewers to connect...</div>
+            </div>
+            <div class="chat-input">
+                <input type="text" id="chatIn" placeholder="Say something...">
+                <button onclick="sendChat()"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </aside>
+</div>
+
+<div id="toasts"></div>
+
+<script>
+let mediaStream = null, peers = {}, isLive = false, room = '', pollInt = null;
+let facing = 'user', micOn = true, camOn = true, screenStream = null;
+let startTime = null, durationInt = null, earnings = 0;
+
+// Init camera immediately
+(async function init() {
+    room = genRoom();
+    document.getElementById('roomCode').textContent = room;
+    document.getElementById('roomUrl').textContent = location.origin + '/omnigrid/live.php?room=' + room;
+
+    // Pre-fill title from selected stream
+    const sel = document.getElementById('streamSelect');
+    if (sel.value) {
+        const opt = sel.options[sel.selectedIndex];
+        document.getElementById('liveTitle').value = opt.textContent.split(' (')[0];
+    }
+
+    try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 } },
+            audio: true
+        });
+        document.getElementById('video').srcObject = mediaStream;
+        document.getElementById('ph').style.display = 'none';
+    } catch (e) {
+        document.querySelector('#ph p').textContent = 'Camera access denied. Check permissions.';
+    }
+})();
+
+function toggleLive() { isLive ? stopLive() : startLive(); }
+
+async function startLive() {
+    if (!mediaStream) return;
+    isLive = true;
+    const ind = document.getElementById('liveInd');
+    ind.classList.add('active'); ind.textContent = 'LIVE';
+    document.getElementById('liveBtn').classList.add('streaming');
+    document.getElementById('liveBtn').innerHTML = '<i class="fa-solid fa-stop"></i>';
+
+    await fetch('../signal.php?room=' + room + '&action=reset');
+    startPoll();
+
+    const sid = document.getElementById('streamSelect').value;
+    if (sid) {
+        fetch('stream_status.php', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: parseInt(sid), is_live: 1 })
+        }).catch(() => {});
+    }
+
+    startTime = Date.now();
+    durationInt = setInterval(updateDuration, 1000);
+    addChat('System', 'You are LIVE! Share your room code.', true);
+    toast('You are LIVE!');
+}
+
+function stopLive() {
+    isLive = false;
+    const ind = document.getElementById('liveInd');
+    ind.classList.remove('active'); ind.textContent = 'Offline';
+    document.getElementById('liveBtn').classList.remove('streaming');
+    document.getElementById('liveBtn').innerHTML = '<i class="fa-solid fa-circle"></i>';
+
+    Object.values(peers).forEach(p => p.close());
+    peers = {};
+    if (pollInt) { clearInterval(pollInt); pollInt = null; }
+    if (durationInt) { clearInterval(durationInt); durationInt = null; }
+
+    const sid = document.getElementById('streamSelect').value;
+    if (sid) {
+        fetch('stream_status.php', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: parseInt(sid), is_live: 0 })
+        }).catch(() => {});
+    }
+    addChat('System', 'Stream ended.', true);
+}
+
+function startPoll() {
+    if (pollInt) clearInterval(pollInt);
+    pollInt = setInterval(async () => {
+        if (!isLive) return;
+        try {
+            const r = await fetch('../signal.php?room=' + room + '&action=poll&from=host');
+            const d = await r.json();
+            if (d.offer) await handleOffer(d.offer.viewerId, d.offer);
+            if (d.candidate && d.candidate.viewerId) {
+                const p = peers[d.candidate.viewerId];
+                if (p) await p.addIceCandidate(new RTCIceCandidate(d.candidate.candidate));
             }
-        }
-        
-        async function populateDevices() {
-            const devices = await navigator.mediaDevices.enumerateDevices();
-            const videoSelect = document.getElementById('videoSource');
-            const audioSelect = document.getElementById('audioSource');
-            
-            videoSelect.innerHTML = '';
-            audioSelect.innerHTML = '';
-            
-            devices.forEach(device => {
-                const option = document.createElement('option');
-                option.value = device.deviceId;
-                option.text = device.label || `${device.kind} ${device.deviceId.slice(0,5)}`;
-                
-                if (device.kind === 'videoinput') videoSelect.appendChild(option);
-                if (device.kind === 'audioinput') audioSelect.appendChild(option);
-            });
-            
-            // Switch device when changed
-            videoSelect.onchange = audioSelect.onchange = switchDevice;
-        }
-        
-        async function switchDevice() {
-            if (mediaStream) {
-                mediaStream.getTracks().forEach(t => t.stop());
-            }
-            
-            const videoSource = document.getElementById('videoSource').value;
-            const audioSource = document.getElementById('audioSource').value;
-            const quality = document.getElementById('quality').value;
-            
-            const constraints = {
-                video: {
-                    deviceId: videoSource ? { exact: videoSource } : undefined,
-                    width: { ideal: quality === '1080' ? 1920 : quality === '720' ? 1280 : 854 },
-                    height: { ideal: quality === '1080' ? 1080 : quality === '720' ? 720 : 480 }
-                },
-                audio: {
-                    deviceId: audioSource ? { exact: audioSource } : undefined
-                }
-            };
-            
-            try {
-                mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-                document.getElementById('preview').srcObject = mediaStream;
-                setupAudioMeter();
-            } catch (err) {
-                showError('Could not switch device');
-            }
-        }
-        
-        function setupAudioMeter() {
-            if (!mediaStream) return;
-            
-            audioContext = new AudioContext();
-            analyser = audioContext.createAnalyser();
-            const source = audioContext.createMediaStreamSource(mediaStream);
-            source.connect(analyser);
-            analyser.fftSize = 256;
-            
-            const dataArray = new Uint8Array(analyser.frequencyBinCount);
-            const meter = document.getElementById('audioMeter');
-            
-            function updateMeter() {
-                analyser.getByteFrequencyData(dataArray);
-                const avg = dataArray.reduce((a, b) => a + b) / dataArray.length;
-                meter.style.width = Math.min(100, avg * 1.5) + '%';
-                requestAnimationFrame(updateMeter);
-            }
-            updateMeter();
-        }
-        
-        async function toggleStream() {
-            if (isLive) {
-                stopStream();
-            } else {
-                startStream();
-            }
-        }
-        
-        async function startStream() {
-            if (!mediaStream) {
-                showError('Camera not ready');
-                return;
-            }
-            
-            isLive = true;
-            startTime = Date.now();
-            
-            // Update UI
-            document.getElementById('liveBadge').classList.add('active');
-            document.getElementById('goLiveBtn').innerHTML = '<i class="fa fa-stop"></i> End Stream';
-            document.getElementById('goLiveBtn').classList.remove('btn-live');
-            document.getElementById('goLiveBtn').classList.add('btn-stop');
-            document.getElementById('statusText').textContent = 'LIVE';
-            document.getElementById('statusText').classList.add('live');
-            
-            // Start timer
-            timerInterval = setInterval(updateTimer, 1000);
-            
-            // Start recording and uploading chunks
-            const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') 
-                ? 'video/webm;codecs=vp9' 
-                : 'video/webm';
-            
-            mediaRecorder = new MediaRecorder(mediaStream, {
-                mimeType: mimeType,
-                videoBitsPerSecond: 2500000
-            });
-            
-            mediaRecorder.ondataavailable = async (e) => {
-                if (e.data.size > 0 && isLive) {
-                    await uploadChunk(e.data);
-                }
-            };
-            
-            // Record in 2-second chunks
-            mediaRecorder.start(2000);
-            
-            // Notify server stream started
-            await fetch('stream_status.php', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({stream_id: streamId, status: 'live'})
-            });
-        }
-        
-        function stopStream() {
-            isLive = false;
-            
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                mediaRecorder.stop();
-            }
-            
-            clearInterval(timerInterval);
-            
-            // Update UI
-            document.getElementById('liveBadge').classList.remove('active');
-            document.getElementById('goLiveBtn').innerHTML = '<i class="fa fa-broadcast-tower"></i> Go Live';
-            document.getElementById('goLiveBtn').classList.add('btn-live');
-            document.getElementById('goLiveBtn').classList.remove('btn-stop');
-            document.getElementById('statusText').textContent = 'Offline';
-            document.getElementById('statusText').classList.remove('live');
-            
-            // Notify server
-            fetch('stream_status.php', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({stream_id: streamId, status: 'offline'})
-            });
-        }
-        
-        async function uploadChunk(blob) {
-            const formData = new FormData();
-            formData.append('chunk', blob);
-            formData.append('stream_id', streamId);
-            formData.append('timestamp', Date.now());
-            
-            try {
-                const res = await fetch('upload_chunk.php', {
-                    method: 'POST',
-                    body: formData
-                });
-                const data = await res.json();
-                if (data.viewers !== undefined) {
-                    document.getElementById('viewerCount').textContent = data.viewers;
-                }
-            } catch (err) {
-                console.error('Upload failed:', err);
-            }
-        }
-        
-        function updateTimer() {
-            const elapsed = Math.floor((Date.now() - startTime) / 1000);
-            const hrs = Math.floor(elapsed / 3600).toString().padStart(2, '0');
-            const mins = Math.floor((elapsed % 3600) / 60).toString().padStart(2, '0');
-            const secs = (elapsed % 60).toString().padStart(2, '0');
-            document.getElementById('timer').textContent = `${hrs}:${mins}:${secs}`;
-        }
-        
-        function showError(msg) {
-            const el = document.getElementById('error');
-            el.textContent = msg;
-            el.style.display = 'block';
-        }
-        
-        // Quality change
-        document.getElementById('quality').onchange = switchDevice;
-        
-        // Warn before leaving while live
-        window.onbeforeunload = (e) => {
-            if (isLive) {
-                e.preventDefault();
-                return 'You are still live. Are you sure you want to leave?';
-            }
+        } catch (e) {}
+    }, 1000);
+}
+
+async function handleOffer(vid, offer) {
+    const p = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+    peers[vid] = p;
+    const stream = screenStream || mediaStream;
+    stream.getTracks().forEach(t => p.addTrack(t, stream));
+    p.onicecandidate = async e => {
+        if (e.candidate) await fetch('../signal.php?room=' + room + '&action=candidate', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ from: 'host', viewerId: vid, candidate: e.candidate })
+        });
+    };
+    p.onconnectionstatechange = () => {
+        if (p.connectionState === 'connected') { updateVC(); addChat('System', 'A viewer connected', true); }
+        if (p.connectionState === 'disconnected' || p.connectionState === 'failed') { delete peers[vid]; updateVC(); }
+    };
+    await p.setRemoteDescription(new RTCSessionDescription(offer));
+    const ans = await p.createAnswer();
+    await p.setLocalDescription(ans);
+    await fetch('../signal.php?room=' + room + '&action=answer', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...ans, viewerId: vid })
+    });
+}
+
+function updateVC() {
+    document.getElementById('vc').textContent = Object.values(peers).filter(p => p.connectionState === 'connected').length;
+}
+
+function updateDuration() {
+    if (!startTime) return;
+    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+    const h = String(Math.floor(elapsed / 3600)).padStart(2, '0');
+    const m = String(Math.floor((elapsed % 3600) / 60)).padStart(2, '0');
+    const s = String(elapsed % 60).padStart(2, '0');
+    document.getElementById('duration').textContent = h + ':' + m + ':' + s;
+    earnings = 0.5 * elapsed / 60;
+    document.getElementById('earningsPill').textContent = '$' + (earnings / 100).toFixed(2);
+}
+
+async function flipCam() {
+    facing = facing === 'user' ? 'environment' : 'user';
+    if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: micOn
+    });
+    document.getElementById('video').srcObject = mediaStream;
+    replaceTrackInPeers('video', mediaStream.getVideoTracks()[0]);
+}
+
+function toggleMic() {
+    micOn = !micOn;
+    if (mediaStream) mediaStream.getAudioTracks().forEach(t => t.enabled = micOn);
+    document.getElementById('micIcon').className = 'fa-solid fa-microphone' + (micOn ? '' : '-slash');
+    document.getElementById('micBtn').classList.toggle('muted', !micOn);
+}
+
+function toggleCam() {
+    camOn = !camOn;
+    if (mediaStream) mediaStream.getVideoTracks().forEach(t => t.enabled = camOn);
+    document.getElementById('camIcon').className = 'fa-solid fa-video' + (camOn ? '' : '-slash');
+    document.getElementById('camBtn').classList.toggle('muted', !camOn);
+}
+
+async function toggleScreen() {
+    if (screenStream) {
+        screenStream.getTracks().forEach(t => t.stop()); screenStream = null;
+        document.getElementById('video').srcObject = mediaStream;
+        replaceTrackInPeers('video', mediaStream.getVideoTracks()[0]);
+        toast('Switched to camera');
+        return;
+    }
+    try {
+        screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        document.getElementById('video').srcObject = screenStream;
+        replaceTrackInPeers('video', screenStream.getVideoTracks()[0]);
+        screenStream.getVideoTracks()[0].onended = () => {
+            screenStream = null;
+            document.getElementById('video').srcObject = mediaStream;
+            replaceTrackInPeers('video', mediaStream.getVideoTracks()[0]);
         };
-    </script>
+        toast('Screen sharing active');
+    } catch (e) { toast('Screen share cancelled'); }
+}
+
+function replaceTrackInPeers(kind, newTrack) {
+    Object.values(peers).forEach(p => {
+        const sender = p.getSenders().find(s => s.track?.kind === kind);
+        if (sender) sender.replaceTrack(newTrack);
+    });
+}
+
+function copyLink() {
+    navigator.clipboard.writeText(location.origin + '/omnigrid/live.php?room=' + room);
+    toast('Share link copied!');
+}
+
+function addChat(name, text, isSystem) {
+    const m = document.getElementById('msgs');
+    const el = document.createElement('div');
+    el.className = 'msg' + (isSystem ? ' system' : '');
+    if (isSystem) { el.textContent = text; }
+    else { el.innerHTML = '<span class="name">' + esc(name) + '</span> ' + esc(text); }
+    m.appendChild(el);
+    m.scrollTop = m.scrollHeight;
+}
+
+function sendChat() {
+    const i = document.getElementById('chatIn'), t = i.value.trim();
+    if (t) { addChat('You', t, false); i.value = ''; }
+}
+
+document.getElementById('chatIn').onkeypress = e => { if (e.key === 'Enter') sendChat(); };
+
+document.getElementById('streamSelect').onchange = function() {
+    if (this.value) document.getElementById('liveTitle').value = this.options[this.selectedIndex].textContent.split(' (')[0];
+};
+
+// Warn before leaving while live
+window.onbeforeunload = e => { if (isLive) { e.preventDefault(); return 'You are still live!'; } };
+
+function genRoom() { return Math.random().toString(36).substring(2, 8).toUpperCase(); }
+function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+function toast(m) {
+    const e = document.createElement('div'); e.className = 'toast'; e.textContent = m;
+    document.getElementById('toasts').appendChild(e);
+    setTimeout(() => e.remove(), 3000);
+}
+</script>
 </body>
 </html>
