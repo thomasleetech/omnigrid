@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="https://checkoutmyvibes.com/invitegate/gate4.js?v=4.2" data-app="omnigrid"></script>
+ 
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmniGrid - Live From Everywhere</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #fafafa;
+            --surface: #ffffff;
+            --text: #1a1a2e;
+            --text-muted: #64748b;
+            --primary: #6366f1;
+            --primary-light: #818cf8;
+            --accent: #f43f5e;
+            --success: #10b981;
+            --border: #e2e8f0;
+            --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
+            --shadow-lg: 0 4px 20px rgba(0,0,0,0.08);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+        
+        /* Header */
+        header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 0.75rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-family: 'Space Mono', monospace;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--text);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .logo i { color: var(--primary); }
+        .logo span { color: var(--primary); }
+        nav { display: flex; align-items: center; gap: 1.5rem; }
+        nav a { color: var(--text-muted); text-decoration: none; font-size: 0.9rem; font-weight: 500; transition: color 0.2s; }
+        nav a:hover { color: var(--primary); }
+        .btn {
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            padding: 0.6rem 1.25rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            transition: all 0.2s;
+        }
+        .btn:hover { background: var(--primary-light); transform: translateY(-1px); }
+        .btn-outline { background: transparent; border: 2px solid var(--border); color: var(--text); }
+        .btn-outline:hover { border-color: var(--primary); color: var(--primary); background: transparent; }
+        
+        /* Hero */
+        .hero {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 4rem 2rem 3rem;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            align-items: center;
+        }
+        .hero-content h1 {
+            font-size: 3.5rem;
+            font-weight: 700;
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(135deg, var(--text) 0%, var(--primary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .hero-content p { font-size: 1.2rem; color: var(--text-muted); margin-bottom: 2rem; max-width: 480px; }
+        .hero-actions { display: flex; gap: 1rem; }
+        .hero-stats {
+            display: flex;
+            gap: 3rem;
+            margin-top: 3rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border);
+        }
+        .stat { text-align: left; }
+        .stat-value { font-family: 'Space Mono', monospace; font-size: 2rem; font-weight: 700; color: var(--primary); }
+        .stat-label { font-size: 0.85rem; color: var(--text-muted); }
+        
+        /* Globe Preview */
+        .globe-preview {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        .globe-preview canvas { width: 100%; height: 100%; cursor: grab; }
+        .globe-preview:active canvas { cursor: grabbing; }
+        
+        /* Live Grid */
+        .section { max-width: 1400px; margin: 0 auto; padding: 3rem 2rem; }
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+        .section-header h2 { font-size: 1.75rem; font-weight: 700; }
+        .section-header a { color: var(--primary); text-decoration: none; font-weight: 500; }
+        
+        .stream-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+        .stream-card {
+            background: var(--surface);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            transition: all 0.3s;
+        }
+        .stream-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
+        .stream-thumb {
+            position: relative;
+            aspect-ratio: 16/9;
+            background: linear-gradient(135deg, #1a1a2e 0%, #2d2d44 100%);
+            overflow: hidden;
+        }
+        .stream-thumb img { width: 100%; height: 100%; object-fit: cover; }
+        .live-badge {
+            position: absolute;
+            top: 0.75rem;
+            left: 0.75rem;
+            background: var(--accent);
+            color: #fff;
+            padding: 0.25rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        .live-badge::before { content: ''; width: 6px; height: 6px; background: #fff; border-radius: 50%; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .viewer-count {
+            position: absolute;
+            bottom: 0.75rem;
+            right: 0.75rem;
+            background: rgba(0,0,0,0.7);
+            color: #fff;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
+        .stream-info { padding: 1rem 1.25rem; }
+        .stream-info h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .stream-meta { display: flex; justify-content: space-between; align-items: center; }
+        .stream-creator { font-size: 0.85rem; color: var(--text-muted); }
+        .vibe-tag { background: var(--bg); padding: 0.2rem 0.6rem; border-radius: 20px; font-size: 0.75rem; color: var(--primary); font-weight: 500; }
+        
+        /* Features */
+        .features {
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 3rem;
+        }
+        .feature { text-align: center; }
+        .feature-icon {
+            width: 64px;
+            height: 64px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.25rem;
+            font-size: 1.5rem;
+            color: #fff;
+        }
+        .feature h3 { font-size: 1.1rem; margin-bottom: 0.5rem; }
+        .feature p { font-size: 0.9rem; color: var(--text-muted); }
+        
+        /* Footer */
+        footer {
+            background: var(--text);
+            color: #fff;
+            padding: 3rem 2rem;
+            text-align: center;
+        }
+        footer a { color: var(--primary-light); }
+        
+        @media (max-width: 900px) {
+            .hero { grid-template-columns: 1fr; text-align: center; }
+            .hero-content h1 { font-size: 2.5rem; }
+            .hero-content p { margin: 0 auto 2rem; }
+            .hero-actions { justify-content: center; }
+            .hero-stats { justify-content: center; }
+            .features-grid { grid-template-columns: 1fr; }
+            .globe-preview { max-width: 350px; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <a href="./" class="logo"><i class="fa fa-globe"></i> Omni<span>Grid</span></a>
+        <nav>
+            <a href="globe.html"><i class="fa fa-earth-americas"></i> Globe</a>
+            <a href="contribute/"><i class="fa fa-broadcast-tower"></i> Create</a>
+            <a href="login.php" class="btn btn-outline">Sign In</a>
+            <a href="register.php" class="btn">Get Started</a>
+        </nav>
+    </header>
+    
+    <section class="hero">
+        <div class="hero-content">
+            <h1>Live streams from every corner of Earth</h1>
+            <p>Discover real-time feeds from creators worldwide. Stream your world, earn as you go with our adaptive SmartGrid engine.</p>
+            <div class="hero-actions">
+                <a href="register.php" class="btn"><i class="fa fa-play"></i> Start Streaming</a>
+                <a href="globe.html" class="btn btn-outline"><i class="fa fa-globe"></i> Explore Globe</a>
+            </div>
+            <div class="hero-stats">
+                <div class="stat">
+                    <div class="stat-value" id="liveCount">12</div>
+                    <div class="stat-label">Live Now</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="creatorCount">847</div>
+                    <div class="stat-label">Creators</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="countryCount">94</div>
+                    <div class="stat-label">Countries</div>
+                </div>
+            </div>
+        </div>
+        <div class="globe-preview">
+            <canvas id="globeCanvas"></canvas>
+        </div>
+    </section>
+    
+    <section class="section">
+        <div class="section-header">
+            <h2><i class="fa fa-fire" style="color:var(--accent)"></i> Live Now</h2>
+            <a href="browse.php">View All <i class="fa fa-arrow-right"></i></a>
+        </div>
+        <div class="stream-grid" id="streamGrid">
+            <!-- Populated by JS -->
+        </div>
+    </section>
+    
+    <section class="features section">
+        <div class="features-grid">
+            <div class="feature">
+                <div class="feature-icon"><i class="fa fa-chart-line"></i></div>
+                <h3>SmartGrid Earnings</h3>
+                <p>Our adaptive algorithm rewards engagement. More viewers, better retention = higher payouts.</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon"><i class="fa fa-mobile-alt"></i></div>
+                <h3>Stream From Anywhere</h3>
+                <p>Go live directly from your browser. No apps needed - just tap and broadcast.</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon"><i class="fa fa-globe"></i></div>
+                <h3>Global Discovery</h3>
+                <p>Your stream appears on our interactive globe. Viewers find you by exploring the world.</p>
+            </div>
+        </div>
+    </section>
+    
+    <footer>
+        <p>&copy; 2024 OmniGrid &middot; <a href="admin.php">Admin</a></p>
+    </footer>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Mini Globe
+        const canvas = document.getElementById('globeCanvas');
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+        renderer.setSize(500, 500);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        
+        // Earth
+        const geo = new THREE.SphereGeometry(1.5, 64, 64);
+        const mat = new THREE.MeshPhongMaterial({
+            color: 0x6366f1,
+            emissive: 0x1a1a2e,
+            specular: 0xffffff,
+            shininess: 20,
+            wireframe: false
+        });
+        const earth = new THREE.Mesh(geo, mat);
+        scene.add(earth);
+        
+        // Atmosphere
+        const atmosGeo = new THREE.SphereGeometry(1.55, 64, 64);
+        const atmosMat = new THREE.MeshPhongMaterial({
+            color: 0x818cf8,
+            transparent: true,
+            opacity: 0.15,
+            side: THREE.BackSide
+        });
+        scene.add(new THREE.Mesh(atmosGeo, atmosMat));
+        
+        // Lights
+        scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+        const sun = new THREE.DirectionalLight(0xffffff, 1);
+        sun.position.set(5, 3, 5);
+        scene.add(sun);
+        
+        camera.position.z = 4;
+        
+        // Live dots
+        const dotGeo = new THREE.SphereGeometry(0.03, 8, 8);
+        const dotMat = new THREE.MeshBasicMaterial({ color: 0xf43f5e });
+        const dots = [];
+        for (let i = 0; i < 12; i++) {
+            const lat = (Math.random() - 0.5) * 160;
+            const lng = Math.random() * 360;
+            const phi = (90 - lat) * Math.PI / 180;
+            const theta = (lng + 180) * Math.PI / 180;
+            const dot = new THREE.Mesh(dotGeo, dotMat.clone());
+            dot.position.setFromSphericalCoords(1.52, phi, theta);
+            earth.add(dot);
+            dots.push(dot);
+        }
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            earth.rotation.y += 0.002;
+            dots.forEach((d, i) => {
+                d.material.opacity = 0.5 + Math.sin(Date.now() * 0.003 + i) * 0.5;
+            });
+            renderer.render(scene, camera);
+        }
+        animate();
+        
+        // Click to globe
+        canvas.onclick = () => location.href = 'globe.html';
+        
+        // Demo streams
+        const streams = [
+            { title: 'Shibuya Crossing Live', creator: 'TokyoVibes', tag: 'cityscape', views: 234, live: true },
+            { title: 'Studio Chill Session', creator: 'BeatMaker', tag: 'music', views: 89, live: true },
+            { title: 'Mountain Sunrise', creator: 'NatureWatch', tag: 'nature', views: 156, live: true },
+            { title: 'Late Night Coding', creator: 'DevStream', tag: 'tech', views: 67, live: true },
+            { title: 'Beach Vibes', creator: 'CoastalCam', tag: 'lifestyle', views: 312, live: true },
+            { title: 'Urban Exploration', creator: 'CityWalker', tag: 'adventure', views: 145, live: true }
+        ];
+        
+        document.getElementById('streamGrid').innerHTML = streams.map(s => `
+            <a href="watch.php" class="stream-card">
+                <div class="stream-thumb">
+                    ${s.live ? '<div class="live-badge">LIVE</div>' : ''}
+                    <div class="viewer-count"><i class="fa fa-eye"></i> ${s.views}</div>
+                </div>
+                <div class="stream-info">
+                    <h3>${s.title}</h3>
+                    <div class="stream-meta">
+                        <span class="stream-creator">${s.creator}</span>
+                        <span class="vibe-tag">${s.tag}</span>
+                    </div>
+                </div>
+            </a>
+        `).join('');
+    </script>
+</body>
+</html>

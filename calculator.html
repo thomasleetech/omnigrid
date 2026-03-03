@@ -1,0 +1,1968 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>smartGrid Algorithm Calculator v2</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;600;800&display=swap');
+        
+        :root {
+            --bg-primary: #0a0e14;
+            --bg-secondary: #12171f;
+            --bg-tertiary: #1a2130;
+            --bg-input: #0d1117;
+            --accent-cyan: #00f0ff;
+            --accent-magenta: #ff00aa;
+            --accent-green: #00ff88;
+            --accent-orange: #ff8800;
+            --accent-yellow: #ffdd00;
+            --accent-red: #ff4455;
+            --accent-purple: #aa66ff;
+            --text-primary: #e8edf5;
+            --text-muted: #6b7a94;
+            --border-color: #2a3545;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.5;
+            min-height: 100vh;
+        }
+        
+        .app-layout {
+            display: grid;
+            grid-template-columns: 380px 1fr 380px;
+            min-height: 100vh;
+        }
+        
+        /* Panels */
+        .panel {
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            overflow-y: auto;
+            max-height: 100vh;
+        }
+        
+        .panel:last-child {
+            border-right: none;
+            border-left: 1px solid var(--border-color);
+        }
+        
+        .panel-header {
+            position: sticky;
+            top: 0;
+            background: var(--bg-secondary);
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            z-index: 10;
+        }
+        
+        .panel-title {
+            font-size: 1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .panel-title i { color: var(--accent-cyan); }
+        
+        .panel-body {
+            padding: 1rem;
+        }
+        
+        /* Category Accordions */
+        .category {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            margin-bottom: 0.75rem;
+            overflow: hidden;
+        }
+        
+        .category-header {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+        }
+        
+        .category-header:hover {
+            background: rgba(0,240,255,0.05);
+        }
+        
+        .category-title {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        
+        .category-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+        }
+        
+        .category-icon.viewers { background: rgba(0,240,255,0.2); color: var(--accent-cyan); }
+        .category-icon.engagement { background: rgba(255,0,170,0.2); color: var(--accent-magenta); }
+        .category-icon.money { background: rgba(0,255,136,0.2); color: var(--accent-green); }
+        .category-icon.quality { background: rgba(255,136,0,0.2); color: var(--accent-orange); }
+        .category-icon.time { background: rgba(255,221,0,0.2); color: var(--accent-yellow); }
+        .category-icon.discovery { background: rgba(170,102,255,0.2); color: var(--accent-purple); }
+        .category-icon.creator { background: rgba(255,68,85,0.2); color: var(--accent-red); }
+        .category-icon.uptime { background: rgba(255,221,0,0.2); color: var(--accent-yellow); }
+        
+        .category-score {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            background: var(--bg-input);
+        }
+        
+        .category-body {
+            display: none;
+            padding: 0.75rem 1rem;
+            border-top: 1px solid var(--border-color);
+        }
+        
+        .category.open .category-body {
+            display: block;
+        }
+        
+        .category-chevron {
+            transition: transform 0.2s;
+            color: var(--text-muted);
+        }
+        
+        .category.open .category-chevron {
+            transform: rotate(180deg);
+        }
+        
+        /* Input Rows */
+        .input-row {
+            margin-bottom: 0.75rem;
+        }
+        
+        .input-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 0.25rem;
+        }
+        
+        .input-value {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent-cyan);
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: var(--bg-input);
+            border-radius: 3px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: var(--accent-cyan);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        
+        input[type="number"], select {
+            width: 100%;
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 0.4rem 0.5rem;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+        }
+        
+        .input-row-inline {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+        }
+        
+        /* Weight Slider */
+        .weight-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .weight-row:last-child {
+            border-bottom: none;
+        }
+        
+        .weight-label {
+            flex: 1;
+            font-size: 0.8rem;
+        }
+        
+        .weight-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            width: 40px;
+            text-align: right;
+            color: var(--accent-cyan);
+        }
+        
+        .weight-slider {
+            width: 80px;
+        }
+        
+        /* Main Content */
+        .main-content {
+            padding: 1.5rem;
+            overflow-y: auto;
+            max-height: 100vh;
+            background: var(--bg-primary);
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        
+        .logo h1 {
+            font-size: 1.4rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-magenta));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .btn {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .btn:hover {
+            border-color: var(--accent-cyan);
+        }
+        
+        .btn-primary {
+            background: var(--accent-cyan);
+            color: var(--bg-primary);
+            border-color: var(--accent-cyan);
+        }
+        
+        /* Output Grid */
+        .output-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .output-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.25rem;
+            text-align: center;
+            position: relative;
+        }
+        
+        .output-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            border-radius: 12px 12px 0 0;
+        }
+        
+        .output-card.primary::before { background: linear-gradient(90deg, var(--accent-cyan), var(--accent-green)); }
+        .output-card.secondary::before { background: var(--accent-magenta); }
+        .output-card.tertiary::before { background: var(--accent-orange); }
+        
+        .output-value {
+            font-size: 2rem;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .output-card.primary .output-value { color: var(--accent-cyan); }
+        .output-card.secondary .output-value { color: var(--accent-green); }
+        .output-card.tertiary .output-value { color: var(--accent-magenta); }
+        
+        .output-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 0.25rem;
+        }
+        
+        .output-sub {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        /* Big Multiplier */
+        .multiplier-display {
+            background: linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary));
+            border: 2px solid var(--border-color);
+            border-radius: 16px;
+            padding: 2rem;
+            text-align: center;
+            margin-bottom: 1.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .multiplier-display::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 50% 0%, rgba(0,240,255,0.1), transparent 60%);
+        }
+        
+        .multiplier-value {
+            font-size: 4rem;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            position: relative;
+        }
+        
+        .multiplier-label {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+        }
+        
+        .multiplier-breakdown {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+        
+        .mult-chip {
+            background: var(--bg-input);
+            padding: 0.3rem 0.6rem;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-family: 'JetBrains Mono', monospace;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        
+        .mult-chip i { font-size: 0.65rem; }
+        
+        /* Charts */
+        .chart-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .chart-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1rem;
+        }
+        
+        .chart-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .chart-title i { color: var(--accent-cyan); font-size: 0.8rem; }
+        
+        .chart-wrapper {
+            height: 180px;
+        }
+        
+        /* Scenario Table */
+        .scenario-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .scenario-header {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .scenario-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+        }
+        
+        .scenario-table th,
+        .scenario-table td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .scenario-table th {
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            background: var(--bg-tertiary);
+        }
+        
+        /* Right Panel - Breakdown */
+        .breakdown-section {
+            margin-bottom: 1.5rem;
+        }
+        
+        .breakdown-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: var(--accent-magenta);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .breakdown-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.8rem;
+        }
+        
+        .breakdown-item:last-child {
+            border-bottom: none;
+        }
+        
+        .breakdown-label {
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .breakdown-value {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent-cyan);
+        }
+        
+        .breakdown-value.negative { color: var(--accent-red); }
+        .breakdown-value.positive { color: var(--accent-green); }
+        
+        /* Score Bars */
+        .score-bar-container {
+            margin-bottom: 0.75rem;
+        }
+        
+        .score-bar-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        .score-bar {
+            height: 8px;
+            background: var(--bg-input);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .score-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s;
+        }
+        
+        /* Formula Box */
+        .formula-box {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            overflow-x: auto;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .formula-line {
+            margin: 0.2rem 0;
+            white-space: nowrap;
+        }
+        
+        .f-var { color: var(--accent-cyan); }
+        .f-op { color: var(--accent-magenta); }
+        .f-num { color: var(--accent-green); }
+        .f-comment { color: var(--text-muted); }
+        .f-section { color: var(--accent-orange); font-weight: 600; margin-top: 0.5rem; }
+        
+        /* Presets */
+        .preset-row {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+        
+        .preset-btn {
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            padding: 0.4rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: var(--text-muted);
+        }
+        
+        .preset-btn:hover, .preset-btn.active {
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+        }
+        
+        /* Zone Selector */
+        .zone-selector {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .zone-btn {
+            background: var(--bg-input);
+            border: 2px solid var(--border-color);
+            padding: 0.75rem;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .zone-btn.public.active { border-color: var(--accent-cyan); }
+        .zone-btn.home.active { border-color: var(--accent-green); }
+        .zone-btn.nsfw.active { border-color: var(--accent-magenta); }
+        
+        .zone-btn i { font-size: 1.25rem; margin-bottom: 0.25rem; display: block; }
+        .zone-btn.public i { color: var(--accent-cyan); }
+        .zone-btn.home i { color: var(--accent-green); }
+        .zone-btn.nsfw i { color: var(--accent-magenta); }
+        
+        .zone-btn span { font-size: 0.7rem; color: var(--text-muted); }
+        
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--accent-green);
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            opacity: 0;
+            transition: all 0.3s;
+            z-index: 1000;
+            font-size: 0.85rem;
+        }
+        
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+        
+        /* Responsive */
+        @media (max-width: 1400px) {
+            .app-layout { grid-template-columns: 340px 1fr 340px; }
+        }
+        
+        @media (max-width: 1200px) {
+            .app-layout { grid-template-columns: 1fr; }
+            .panel { max-height: none; }
+            .output-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-primary); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <div class="app-layout">
+        <!-- LEFT PANEL - All Input Variables -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title"><i class="fas fa-sliders-h"></i> Algorithm Variables</div>
+            </div>
+            <div class="panel-body">
+                <!-- Presets -->
+                <div class="preset-row">
+                    <button class="preset-btn" onclick="loadPreset('passive')">Passive</button>
+                    <button class="preset-btn" onclick="loadPreset('casual')">Casual</button>
+                    <button class="preset-btn" onclick="loadPreset('active')">Active</button>
+                    <button class="preset-btn" onclick="loadPreset('pro')">Pro</button>
+                    <button class="preset-btn" onclick="loadPreset('viral')">Viral</button>
+                </div>
+                
+                <!-- Zone Selection -->
+                <div class="zone-selector">
+                    <div class="zone-btn public active" onclick="setZone('public')">
+                        <i class="fas fa-city"></i>
+                        <span>Public</span>
+                    </div>
+                    <div class="zone-btn home" onclick="setZone('home')">
+                        <i class="fas fa-home"></i>
+                        <span>Home</span>
+                    </div>
+                    <div class="zone-btn nsfw" onclick="setZone('nsfw')">
+                        <i class="fas fa-lock"></i>
+                        <span>NSFW</span>
+                    </div>
+                </div>
+                
+                <!-- UPTIME / ALWAYS-ON -->
+                <div class="category open" data-category="uptime">
+                    <div class="category-header" onclick="toggleCategory('uptime')">
+                        <div class="category-title">
+                            <div class="category-icon uptime"><i class="fas fa-power-off"></i></div>
+                            Uptime (Always-On)
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span class="category-score" id="score-uptime">1.00x</span>
+                            <i class="fas fa-chevron-down category-chevron"></i>
+                        </div>
+                    </div>
+                    <div class="category-body">
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Stream Hours / Day</span>
+                                <span class="input-value" id="val-streamHours">6</span>
+                            </div>
+                            <input type="range" id="streamHours" min="0" max="24" value="6" step="0.5" oninput="update('streamHours')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Base Hourly Rate ($)</span>
+                                <span class="input-value" id="val-baseHourly">0.50</span>
+                            </div>
+                            <input type="range" id="baseHourly" min="0" max="5" value="0.50" step="0.05" oninput="update('baseHourly')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Uptime Streak (days)</span>
+                                <span class="input-value" id="val-uptimeStreak">0</span>
+                            </div>
+                            <input type="range" id="uptimeStreak" min="0" max="30" value="0" oninput="update('uptimeStreak')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Streak Bonus % / Day</span>
+                                <span class="input-value" id="val-streakBonusPct">2</span>
+                            </div>
+                            <input type="range" id="streakBonusPct" min="0" max="10" value="2" step="0.5" oninput="update('streakBonusPct')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Stream Resolution</span>
+                            </div>
+                            <select id="resolution" onchange="update('resolution')">
+                                <option value="360">360p</option>
+                                <option value="480">480p</option>
+                                <option value="720" selected>720p HD</option>
+                                <option value="1080">1080p Full HD</option>
+                                <option value="4096">4K UHD</option>
+                            </select>
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Resolution Bonus %</span>
+                                <span class="input-value" id="val-resolutionBonus">10</span>
+                            </div>
+                            <input type="range" id="resolutionBonus" min="0" max="50" value="10" oninput="update('resolutionBonus')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Stream Stability %</span>
+                                <span class="input-value" id="val-stability">95</span>
+                            </div>
+                            <input type="range" id="stability" min="50" max="100" value="95" oninput="update('stability')">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- VIEWER METRICS -->
+                <div class="category" data-category="viewers">
+                    <div class="category-header" onclick="toggleCategory('viewers')">
+                        <div class="category-title">
+                            <div class="category-icon viewers"><i class="fas fa-eye"></i></div>
+                            Viewer Metrics
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span class="category-score" id="score-viewers">1.00x</span>
+                            <i class="fas fa-chevron-down category-chevron"></i>
+                        </div>
+                    </div>
+                    <div class="category-body">
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Peak Concurrent Viewers</span>
+                                <span class="input-value" id="val-peakViewers">100</span>
+                            </div>
+                            <input type="range" id="peakViewers" min="0" max="50000" value="100" oninput="update('peakViewers')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Average Concurrent</span>
+                                <span class="input-value" id="val-avgViewers">50</span>
+                            </div>
+                            <input type="range" id="avgViewers" min="0" max="25000" value="50" oninput="update('avgViewers')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Unique Viewers / Day</span>
+                                <span class="input-value" id="val-uniqueViewers">200</span>
+                            </div>
+                            <input type="range" id="uniqueViewers" min="0" max="100000" value="200" oninput="update('uniqueViewers')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Avg Watch Time (min)</span>
+                                <span class="input-value" id="val-avgWatchTime">5</span>
+                            </div>
+                            <input type="range" id="avgWatchTime" min="0" max="120" value="5" step="0.5" oninput="update('avgWatchTime')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Viewer Retention % (>5min)</span>
+                                <span class="input-value" id="val-retention">30</span>
+                            </div>
+                            <input type="range" id="retention" min="0" max="100" value="30" oninput="update('retention')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>New vs Returning %</span>
+                                <span class="input-value" id="val-newVsReturn">50</span>
+                            </div>
+                            <input type="range" id="newVsReturn" min="0" max="100" value="50" oninput="update('newVsReturn')">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- ENGAGEMENT -->
+                <div class="category" data-category="engagement">
+                    <div class="category-header" onclick="toggleCategory('engagement')">
+                        <div class="category-title">
+                            <div class="category-icon engagement"><i class="fas fa-heart"></i></div>
+                            Engagement Signals
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span class="category-score" id="score-engagement">1.00x</span>
+                            <i class="fas fa-chevron-down category-chevron"></i>
+                        </div>
+                    </div>
+                    <div class="category-body">
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Revisit Rate %</span>
+                                <span class="input-value" id="val-revisitRate">15</span>
+                            </div>
+                            <input type="range" id="revisitRate" min="0" max="100" value="15" oninput="update('revisitRate')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Chat Messages / Hour</span>
+                                <span class="input-value" id="val-chatMsgs">10</span>
+                            </div>
+                            <input type="range" id="chatMsgs" min="0" max="1000" value="10" oninput="update('chatMsgs')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Reactions / Hour</span>
+                                <span class="input-value" id="val-reactions">5</span>
+                            </div>
+                            <input type="range" id="reactions" min="0" max="500" value="5" oninput="update('reactions')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Clips Created / Day</span>
+                                <span class="input-value" id="val-clips">0</span>
+                            </div>
+                            <input type="range" id="clips" min="0" max="100" value="0" oninput="update('clips')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Social Shares / Day</span>
+                                <span class="input-value" id="val-shares">0</span>
+                            </div>
+                            <input type="range" id="shares" min="0" max="500" value="0" oninput="update('shares')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>New Follows / Day</span>
+                                <span class="input-value" id="val-newFollows">2</span>
+                            </div>
+                            <input type="range" id="newFollows" min="0" max="1000" value="2" oninput="update('newFollows')">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- MONETIZATION -->
+                <div class="category" data-category="money">
+                    <div class="category-header" onclick="toggleCategory('money')">
+                        <div class="category-title">
+                            <div class="category-icon money"><i class="fas fa-coins"></i></div>
+                            Monetization
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span class="category-score" id="score-money">1.00x</span>
+                            <i class="fas fa-chevron-down category-chevron"></i>
+                        </div>
+                    </div>
+                    <div class="category-body">
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Tips / Hour ($)</span>
+                                <span class="input-value" id="val-tipsHour">5</span>
+                            </div>
+                            <input type="range" id="tipsHour" min="0" max="500" value="5" oninput="update('tipsHour')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Tip Frequency / Hour</span>
+                                <span class="input-value" id="val-tipFreq">2</span>
+                            </div>
+                            <input type="range" id="tipFreq" min="0" max="100" value="2" oninput="update('tipFreq')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Active Subscribers</span>
+                                <span class="input-value" id="val-subscribers">25</span>
+                            </div>
+                            <input type="range" id="subscribers" min="0" max="10000" value="25" oninput="update('subscribers')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Sub Price ($)</span>
+                                <span class="input-value" id="val-subPrice">4.99</span>
+                            </div>
+                            <input type="range" id="subPrice" min="0.99" max="49.99" value="4.99" step="0.50" oninput="update('subPrice')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>New Subs / Day</span>
+                                <span class="input-value" id="val-newSubs">1</span>
+                            </div>
+                            <input type="range" id="newSubs" min="0" max="100" value="1" oninput="update('newSubs')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Gift Subs / Day</span>
+                                <span class="input-value" id="val-giftSubs">0</span>
+                            </div>
+                            <input type="range" id="giftSubs" min="0" max="50" value="0" oninput="update('giftSubs')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>PPV Revenue / Day (NSFW)</span>
+                                <span class="input-value" id="val-ppvRevenue">0</span>
+                            </div>
+                            <input type="range" id="ppvRevenue" min="0" max="1000" value="0" oninput="update('ppvRevenue')">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- TIME FACTORS -->
+                <div class="category" data-category="time">
+                    <div class="category-header" onclick="toggleCategory('time')">
+                        <div class="category-title">
+                            <div class="category-icon time"><i class="fas fa-clock"></i></div>
+                            Time Factors
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span class="category-score" id="score-time">1.00x</span>
+                            <i class="fas fa-chevron-down category-chevron"></i>
+                        </div>
+                    </div>
+                    <div class="category-body">
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Peak Hours Coverage %</span>
+                                <span class="input-value" id="val-peakHours">50</span>
+                            </div>
+                            <input type="range" id="peakHours" min="0" max="100" value="50" oninput="update('peakHours')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Peak Hour Multiplier</span>
+                                <span class="input-value" id="val-peakMult">1.5</span>x
+                            </div>
+                            <input type="range" id="peakMult" min="1" max="3" value="1.5" step="0.1" oninput="update('peakMult')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Weekend Bonus %</span>
+                                <span class="input-value" id="val-weekendBonus">10</span>
+                            </div>
+                            <input type="range" id="weekendBonus" min="0" max="50" value="10" oninput="update('weekendBonus')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Timezone Premium</span>
+                            </div>
+                            <select id="timezone" onchange="update('timezone')">
+                                <option value="0.8">Off-Peak Region (0.8x)</option>
+                                <option value="1.0" selected>Standard (1.0x)</option>
+                                <option value="1.2">Prime Region (1.2x)</option>
+                                <option value="1.5">Premium Market (1.5x)</option>
+                            </select>
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Seasonal Event Active</span>
+                            </div>
+                            <select id="seasonalEvent" onchange="update('seasonalEvent')">
+                                <option value="1.0" selected>None</option>
+                                <option value="1.1">Minor Event (+10%)</option>
+                                <option value="1.25">Major Event (+25%)</option>
+                                <option value="1.5">Holiday Special (+50%)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- DISCOVERY / PLATFORM -->
+                <div class="category" data-category="discovery">
+                    <div class="category-header" onclick="toggleCategory('discovery')">
+                        <div class="category-title">
+                            <div class="category-icon discovery"><i class="fas fa-search"></i></div>
+                            Discovery & Platform
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span class="category-score" id="score-discovery">1.00x</span>
+                            <i class="fas fa-chevron-down category-chevron"></i>
+                        </div>
+                    </div>
+                    <div class="category-body">
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Featured Status</span>
+                            </div>
+                            <select id="featured" onchange="update('featured')">
+                                <option value="1.0" selected>Not Featured</option>
+                                <option value="1.25">Category Featured</option>
+                                <option value="1.5">Homepage Featured</option>
+                                <option value="2.0">Staff Pick</option>
+                            </select>
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Category Rank</span>
+                                <span class="input-value" id="val-categoryRank">500</span>
+                            </div>
+                            <input type="range" id="categoryRank" min="1" max="1000" value="500" oninput="update('categoryRank')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Trending Score (0-100)</span>
+                                <span class="input-value" id="val-trendingScore">10</span>
+                            </div>
+                            <input type="range" id="trendingScore" min="0" max="100" value="10" oninput="update('trendingScore')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Algorithm Boost %</span>
+                                <span class="input-value" id="val-algoBoost">0</span>
+                            </div>
+                            <input type="range" id="algoBoost" min="0" max="100" value="0" oninput="update('algoBoost')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Search Impressions / Day</span>
+                                <span class="input-value" id="val-searchImpressions">50</span>
+                            </div>
+                            <input type="range" id="searchImpressions" min="0" max="10000" value="50" oninput="update('searchImpressions')">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- CREATOR FACTORS -->
+                <div class="category" data-category="creator">
+                    <div class="category-header" onclick="toggleCategory('creator')">
+                        <div class="category-title">
+                            <div class="category-icon creator"><i class="fas fa-user-check"></i></div>
+                            Creator Factors
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span class="category-score" id="score-creator">1.00x</span>
+                            <i class="fas fa-chevron-down category-chevron"></i>
+                        </div>
+                    </div>
+                    <div class="category-body">
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Account Age (days)</span>
+                                <span class="input-value" id="val-accountAge">30</span>
+                            </div>
+                            <input type="range" id="accountAge" min="0" max="365" value="30" oninput="update('accountAge')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Partner Tier</span>
+                            </div>
+                            <select id="partnerTier" onchange="update('partnerTier')">
+                                <option value="1.0" selected>Standard</option>
+                                <option value="1.1">Affiliate</option>
+                                <option value="1.25">Partner</option>
+                                <option value="1.5">Premium Partner</option>
+                            </select>
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Trust Score (0-100)</span>
+                                <span class="input-value" id="val-trustScore">80</span>
+                            </div>
+                            <input type="range" id="trustScore" min="0" max="100" value="80" oninput="update('trustScore')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Community Strikes</span>
+                                <span class="input-value" id="val-strikes">0</span>
+                            </div>
+                            <input type="range" id="strikes" min="0" max="3" value="0" oninput="update('strikes')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Historical Performance</span>
+                                <span class="input-value" id="val-historicalPerf">50</span>
+                            </div>
+                            <input type="range" id="historicalPerf" min="0" max="100" value="50" oninput="update('historicalPerf')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Verified Status</span>
+                            </div>
+                            <select id="verified" onchange="update('verified')">
+                                <option value="1.0" selected>Unverified</option>
+                                <option value="1.05">Email Verified</option>
+                                <option value="1.1">ID Verified</option>
+                                <option value="1.15">Fully Verified</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- QUALITY / STREAM HEALTH -->
+                <div class="category" data-category="quality">
+                    <div class="category-header" onclick="toggleCategory('quality')">
+                        <div class="category-title">
+                            <div class="category-icon quality"><i class="fas fa-signal"></i></div>
+                            Stream Quality
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span class="category-score" id="score-quality">1.00x</span>
+                            <i class="fas fa-chevron-down category-chevron"></i>
+                        </div>
+                    </div>
+                    <div class="category-body">
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Bitrate (Kbps)</span>
+                                <span class="input-value" id="val-bitrate">3000</span>
+                            </div>
+                            <input type="range" id="bitrate" min="500" max="10000" value="3000" step="100" oninput="update('bitrate')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Frame Drops %</span>
+                                <span class="input-value" id="val-frameDrops">2</span>
+                            </div>
+                            <input type="range" id="frameDrops" min="0" max="50" value="2" oninput="update('frameDrops')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Audio Quality</span>
+                            </div>
+                            <select id="audioQuality" onchange="update('audioQuality')">
+                                <option value="0.9">Poor</option>
+                                <option value="1.0" selected>Standard</option>
+                                <option value="1.05">High Quality</option>
+                                <option value="1.1">Studio Grade</option>
+                            </select>
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Latency Mode</span>
+                            </div>
+                            <select id="latency" onchange="update('latency')">
+                                <option value="0.95">Normal (5-10s)</option>
+                                <option value="1.0" selected>Low (2-5s)</option>
+                                <option value="1.05">Ultra-Low (<2s)</option>
+                            </select>
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Content Moderation Score</span>
+                                <span class="input-value" id="val-modScore">100</span>
+                            </div>
+                            <input type="range" id="modScore" min="0" max="100" value="100" oninput="update('modScore')">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- ALGORITHM WEIGHTS -->
+                <div class="category" data-category="weights">
+                    <div class="category-header" onclick="toggleCategory('weights')">
+                        <div class="category-title">
+                            <div class="category-icon viewers"><i class="fas fa-balance-scale"></i></div>
+                            Category Weights
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span class="category-score" id="weight-total">100%</span>
+                            <i class="fas fa-chevron-down category-chevron"></i>
+                        </div>
+                    </div>
+                    <div class="category-body">
+                        <div class="weight-row">
+                            <span class="weight-label">Uptime</span>
+                            <input type="range" class="weight-slider" id="w-uptime" min="0" max="100" value="25" oninput="updateWeight('uptime')">
+                            <span class="weight-value" id="wv-uptime">25%</span>
+                        </div>
+                        <div class="weight-row">
+                            <span class="weight-label">Viewers</span>
+                            <input type="range" class="weight-slider" id="w-viewers" min="0" max="100" value="20" oninput="updateWeight('viewers')">
+                            <span class="weight-value" id="wv-viewers">20%</span>
+                        </div>
+                        <div class="weight-row">
+                            <span class="weight-label">Engagement</span>
+                            <input type="range" class="weight-slider" id="w-engagement" min="0" max="100" value="20" oninput="updateWeight('engagement')">
+                            <span class="weight-value" id="wv-engagement">20%</span>
+                        </div>
+                        <div class="weight-row">
+                            <span class="weight-label">Monetization</span>
+                            <input type="range" class="weight-slider" id="w-money" min="0" max="100" value="15" oninput="updateWeight('money')">
+                            <span class="weight-value" id="wv-money">15%</span>
+                        </div>
+                        <div class="weight-row">
+                            <span class="weight-label">Time Factors</span>
+                            <input type="range" class="weight-slider" id="w-time" min="0" max="100" value="5" oninput="updateWeight('time')">
+                            <span class="weight-value" id="wv-time">5%</span>
+                        </div>
+                        <div class="weight-row">
+                            <span class="weight-label">Discovery</span>
+                            <input type="range" class="weight-slider" id="w-discovery" min="0" max="100" value="5" oninput="updateWeight('discovery')">
+                            <span class="weight-value" id="wv-discovery">5%</span>
+                        </div>
+                        <div class="weight-row">
+                            <span class="weight-label">Creator</span>
+                            <input type="range" class="weight-slider" id="w-creator" min="0" max="100" value="5" oninput="updateWeight('creator')">
+                            <span class="weight-value" id="wv-creator">5%</span>
+                        </div>
+                        <div class="weight-row">
+                            <span class="weight-label">Quality</span>
+                            <input type="range" class="weight-slider" id="w-quality" min="0" max="100" value="5" oninput="updateWeight('quality')">
+                            <span class="weight-value" id="wv-quality">5%</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- PLATFORM SETTINGS -->
+                <div class="category" data-category="platform">
+                    <div class="category-header" onclick="toggleCategory('platform')">
+                        <div class="category-title">
+                            <div class="category-icon viewers"><i class="fas fa-cog"></i></div>
+                            Platform Settings
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <i class="fas fa-chevron-down category-chevron"></i>
+                        </div>
+                    </div>
+                    <div class="category-body">
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Platform Fee %</span>
+                                <span class="input-value" id="val-platformFee">20</span>
+                            </div>
+                            <input type="range" id="platformFee" min="0" max="50" value="20" oninput="update('platformFee')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Max Boost Cap</span>
+                                <span class="input-value" id="val-maxBoost">5.0</span>x
+                            </div>
+                            <input type="range" id="maxBoost" min="1" max="10" value="5" step="0.5" oninput="update('maxBoost')">
+                        </div>
+                        <div class="input-row">
+                            <div class="input-label">
+                                <span>Min Payout Floor ($)</span>
+                                <span class="input-value" id="val-minPayout">0.01</span>
+                            </div>
+                            <input type="range" id="minPayout" min="0" max="1" value="0.01" step="0.01" oninput="update('minPayout')">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- MAIN CONTENT -->
+        <main class="main-content">
+            <div class="header">
+                <div class="logo">
+                    <i class="fas fa-brain" style="font-size: 1.25rem; color: var(--accent-cyan);"></i>
+                    <h1>smartGrid Calculator v2</h1>
+                </div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn" onclick="resetAll()"><i class="fas fa-undo"></i> Reset</button>
+                    <button class="btn" onclick="saveScenario()"><i class="fas fa-save"></i> Save</button>
+                    <button class="btn btn-primary" onclick="exportConfig()"><i class="fas fa-download"></i> Export</button>
+                </div>
+            </div>
+            
+            <!-- Big Multiplier Display -->
+            <div class="multiplier-display">
+                <div class="multiplier-value" id="totalMultiplier">1.00x</div>
+                <div class="multiplier-label">Total smartGrid Multiplier</div>
+                <div class="multiplier-breakdown" id="multBreakdown">
+                    <!-- Filled by JS -->
+                </div>
+            </div>
+            
+            <!-- Output Grid -->
+            <div class="output-grid">
+                <div class="output-card primary">
+                    <div class="output-value" id="out-daily">$0.00</div>
+                    <div class="output-label">Daily Earnings</div>
+                    <div class="output-sub" id="out-daily-sub">$0 base + $0 boost</div>
+                </div>
+                <div class="output-card secondary">
+                    <div class="output-value" id="out-monthly">$0.00</div>
+                    <div class="output-label">Monthly Projection</div>
+                    <div class="output-sub" id="out-monthly-sub">30-day estimate</div>
+                </div>
+                <div class="output-card tertiary">
+                    <div class="output-value" id="out-hourly">$0.00</div>
+                    <div class="output-label">Effective Hourly</div>
+                    <div class="output-sub" id="out-hourly-sub">per stream hour</div>
+                </div>
+            </div>
+            
+            <!-- Charts -->
+            <div class="chart-row">
+                <div class="chart-card">
+                    <div class="chart-title"><i class="fas fa-chart-pie"></i> Revenue Sources</div>
+                    <div class="chart-wrapper"><canvas id="revenueChart"></canvas></div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-title"><i class="fas fa-chart-bar"></i> Category Multipliers</div>
+                    <div class="chart-wrapper"><canvas id="categoryChart"></canvas></div>
+                </div>
+            </div>
+            
+            <div class="chart-row">
+                <div class="chart-card">
+                    <div class="chart-title"><i class="fas fa-chart-line"></i> Earnings Projection</div>
+                    <div class="chart-wrapper"><canvas id="projectionChart"></canvas></div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-title"><i class="fas fa-chart-area"></i> Engagement Radar</div>
+                    <div class="chart-wrapper"><canvas id="radarChart"></canvas></div>
+                </div>
+            </div>
+            
+            <!-- Scenarios -->
+            <div class="scenario-card">
+                <div class="scenario-header">
+                    <div class="chart-title" style="margin: 0;"><i class="fas fa-layer-group"></i> Saved Scenarios</div>
+                    <button class="btn" onclick="clearScenarios()"><i class="fas fa-trash"></i> Clear All</button>
+                </div>
+                <table class="scenario-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Zone</th>
+                            <th>Multiplier</th>
+                            <th>Daily</th>
+                            <th>Monthly</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="scenarioBody">
+                        <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No scenarios saved</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+        
+        <!-- RIGHT PANEL - Breakdown & Formula -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title"><i class="fas fa-calculator"></i> Calculation Breakdown</div>
+            </div>
+            <div class="panel-body">
+                <!-- Category Scores -->
+                <div class="breakdown-section">
+                    <div class="breakdown-title"><i class="fas fa-chart-bar"></i> Category Scores</div>
+                    <div id="categoryScores">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+                
+                <!-- Revenue Breakdown -->
+                <div class="breakdown-section">
+                    <div class="breakdown-title"><i class="fas fa-dollar-sign"></i> Revenue Breakdown</div>
+                    <div class="breakdown-item">
+                        <span class="breakdown-label"><i class="fas fa-power-off" style="color: var(--accent-yellow);"></i> Uptime Base</span>
+                        <span class="breakdown-value" id="bd-uptime">$0.00</span>
+                    </div>
+                    <div class="breakdown-item">
+                        <span class="breakdown-label"><i class="fas fa-bolt" style="color: var(--accent-cyan);"></i> Boost Bonus</span>
+                        <span class="breakdown-value positive" id="bd-boost">+$0.00</span>
+                    </div>
+                    <div class="breakdown-item">
+                        <span class="breakdown-label"><i class="fas fa-hand-holding-usd" style="color: var(--accent-green);"></i> Tips</span>
+                        <span class="breakdown-value" id="bd-tips">$0.00</span>
+                    </div>
+                    <div class="breakdown-item">
+                        <span class="breakdown-label"><i class="fas fa-users" style="color: var(--accent-magenta);"></i> Subscriptions</span>
+                        <span class="breakdown-value" id="bd-subs">$0.00</span>
+                    </div>
+                    <div class="breakdown-item">
+                        <span class="breakdown-label"><i class="fas fa-ticket-alt" style="color: var(--accent-purple);"></i> PPV (NSFW)</span>
+                        <span class="breakdown-value" id="bd-ppv">$0.00</span>
+                    </div>
+                    <div class="breakdown-item">
+                        <span class="breakdown-label"><i class="fas fa-percentage" style="color: var(--accent-red);"></i> Platform Fee</span>
+                        <span class="breakdown-value negative" id="bd-fee">-$0.00</span>
+                    </div>
+                    <div class="breakdown-item" style="border-top: 2px solid var(--accent-green); padding-top: 0.75rem; font-weight: 600;">
+                        <span class="breakdown-label">Net Creator Earnings</span>
+                        <span class="breakdown-value positive" id="bd-net">$0.00</span>
+                    </div>
+                </div>
+                
+                <!-- Live Formula -->
+                <div class="breakdown-section">
+                    <div class="breakdown-title"><i class="fas fa-code"></i> Live Algorithm</div>
+                    <div class="formula-box" id="formulaBox">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+                
+                <!-- Optimization Tips -->
+                <div class="breakdown-section">
+                    <div class="breakdown-title"><i class="fas fa-lightbulb"></i> Optimization Tips</div>
+                    <div id="tipsContainer" style="font-size: 0.8rem; color: var(--text-muted);">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="toast" id="toast">Saved!</div>
+    
+    <script>
+        // ============ STATE ============
+        let state = {
+            zone: 'public',
+            // Uptime
+            streamHours: 6, baseHourly: 0.50, uptimeStreak: 0, streakBonusPct: 2,
+            resolution: 720, resolutionBonus: 10, stability: 95,
+            // Viewers
+            peakViewers: 100, avgViewers: 50, uniqueViewers: 200,
+            avgWatchTime: 5, retention: 30, newVsReturn: 50,
+            // Engagement
+            revisitRate: 15, chatMsgs: 10, reactions: 5,
+            clips: 0, shares: 0, newFollows: 2,
+            // Monetization
+            tipsHour: 5, tipFreq: 2, subscribers: 25, subPrice: 4.99,
+            newSubs: 1, giftSubs: 0, ppvRevenue: 0,
+            // Time
+            peakHours: 50, peakMult: 1.5, weekendBonus: 10,
+            timezone: 1.0, seasonalEvent: 1.0,
+            // Discovery
+            featured: 1.0, categoryRank: 500, trendingScore: 10,
+            algoBoost: 0, searchImpressions: 50,
+            // Creator
+            accountAge: 30, partnerTier: 1.0, trustScore: 80,
+            strikes: 0, historicalPerf: 50, verified: 1.0,
+            // Quality
+            bitrate: 3000, frameDrops: 2, audioQuality: 1.0,
+            latency: 1.0, modScore: 100,
+            // Platform
+            platformFee: 20, maxBoost: 5.0, minPayout: 0.01
+        };
+        
+        let weights = {
+            uptime: 25, viewers: 20, engagement: 20, money: 15,
+            time: 5, discovery: 5, creator: 5, quality: 5
+        };
+        
+        const zoneConfig = {
+            public: { baseMult: 1.0, tipMult: 0.5, subMult: 0.3, ppvMult: 0 },
+            home: { baseMult: 1.2, tipMult: 1.0, subMult: 1.0, ppvMult: 0.5 },
+            nsfw: { baseMult: 1.5, tipMult: 1.5, subMult: 1.5, ppvMult: 1.0 }
+        };
+        
+        let scenarios = [];
+        let charts = {};
+        
+        // ============ CALCULATION ============
+        function calculate() {
+            const z = zoneConfig[state.zone];
+            
+            // --- CATEGORY SCORES (0-1 normalized, then convert to multiplier) ---
+            
+            // UPTIME SCORE
+            const hoursNorm = state.streamHours / 24;
+            const streakMult = 1 + Math.min((state.uptimeStreak * state.streakBonusPct / 100), 0.5);
+            const resNorm = { 360: 0.5, 480: 0.7, 720: 0.85, 1080: 1.0, 4096: 1.2 }[state.resolution] || 1;
+            const stabilityNorm = state.stability / 100;
+            const uptimeScore = (hoursNorm * 0.4 + (streakMult - 1) * 2 * 0.3 + resNorm * 0.2 + stabilityNorm * 0.1);
+            const uptimeMult = 1 + uptimeScore;
+            
+            // VIEWER SCORE
+            const peakNorm = Math.min(state.peakViewers / 5000, 1);
+            const avgNorm = Math.min(state.avgViewers / 2500, 1);
+            const watchNorm = Math.min(state.avgWatchTime / 30, 1);
+            const retentionNorm = state.retention / 100;
+            const viewerScore = (peakNorm * 0.25 + avgNorm * 0.25 + watchNorm * 0.3 + retentionNorm * 0.2);
+            const viewerMult = 1 + viewerScore;
+            
+            // ENGAGEMENT SCORE
+            const revisitNorm = state.revisitRate / 100;
+            const chatNorm = Math.min(state.chatMsgs / 200, 1);
+            const reactNorm = Math.min(state.reactions / 100, 1);
+            const clipsNorm = Math.min(state.clips / 20, 1);
+            const sharesNorm = Math.min(state.shares / 100, 1);
+            const followsNorm = Math.min(state.newFollows / 50, 1);
+            const engagementScore = (revisitNorm * 0.3 + chatNorm * 0.2 + reactNorm * 0.15 + clipsNorm * 0.15 + sharesNorm * 0.1 + followsNorm * 0.1);
+            const engagementMult = 1 + engagementScore;
+            
+            // MONETIZATION SCORE
+            const tipsNorm = Math.min(state.tipsHour / 100, 1);
+            const tipFreqNorm = Math.min(state.tipFreq / 20, 1);
+            const subsNorm = Math.min(state.subscribers / 1000, 1);
+            const newSubsNorm = Math.min(state.newSubs / 10, 1);
+            const moneyScore = (tipsNorm * 0.3 + tipFreqNorm * 0.2 + subsNorm * 0.3 + newSubsNorm * 0.2);
+            const moneyMult = 1 + moneyScore;
+            
+            // TIME SCORE
+            const peakHoursNorm = state.peakHours / 100;
+            const timeMult = 1 + (peakHoursNorm * (state.peakMult - 1) * 0.5) + (state.weekendBonus / 100 * 0.2);
+            const timeScore = timeMult - 1;
+            
+            // DISCOVERY SCORE
+            const featuredVal = parseFloat(state.featured);
+            const rankNorm = 1 - (state.categoryRank / 1000);
+            const trendNorm = state.trendingScore / 100;
+            const algoNorm = state.algoBoost / 100;
+            const discoveryScore = ((featuredVal - 1) * 0.4 + rankNorm * 0.2 + trendNorm * 0.25 + algoNorm * 0.15);
+            const discoveryMult = 1 + Math.max(discoveryScore, 0);
+            
+            // CREATOR SCORE
+            const ageNorm = Math.min(state.accountAge / 180, 1);
+            const partnerVal = parseFloat(state.partnerTier);
+            const trustNorm = state.trustScore / 100;
+            const strikePenalty = state.strikes * 0.15;
+            const perfNorm = state.historicalPerf / 100;
+            const verifiedVal = parseFloat(state.verified);
+            const creatorScore = (ageNorm * 0.15 + (partnerVal - 1) * 2 * 0.25 + trustNorm * 0.2 + perfNorm * 0.2 + (verifiedVal - 1) * 2 * 0.1 - strikePenalty);
+            const creatorMult = 1 + Math.max(creatorScore, -0.5);
+            
+            // QUALITY SCORE
+            const bitrateNorm = Math.min(state.bitrate / 8000, 1);
+            const frameNorm = 1 - (state.frameDrops / 50);
+            const audioVal = parseFloat(state.audioQuality);
+            const latencyVal = parseFloat(state.latency);
+            const modNorm = state.modScore / 100;
+            const qualityScore = (bitrateNorm * 0.25 + frameNorm * 0.2 + (audioVal - 0.9) * 2 * 0.15 + (latencyVal - 0.95) * 4 * 0.1 + modNorm * 0.3);
+            const qualityMult = 1 + Math.max(qualityScore, 0);
+            
+            // --- WEIGHTED TOTAL MULTIPLIER ---
+            const totalWeight = Object.values(weights).reduce((a, b) => a + b, 0) || 1;
+            const weightedMult = 
+                (uptimeMult * weights.uptime +
+                viewerMult * weights.viewers +
+                engagementMult * weights.engagement +
+                moneyMult * weights.money +
+                timeMult * weights.time +
+                discoveryMult * weights.discovery +
+                creatorMult * weights.creator +
+                qualityMult * weights.quality) / totalWeight;
+            
+            // Apply zone, timezone, seasonal
+            const zoneMult = z.baseMult;
+            const tzMult = parseFloat(state.timezone);
+            const seasonMult = parseFloat(state.seasonalEvent);
+            
+            let finalMult = weightedMult * zoneMult * tzMult * seasonMult;
+            finalMult = Math.min(finalMult, state.maxBoost); // Cap
+            finalMult = Math.max(finalMult, 1.0); // Floor at 1x
+            
+            // --- REVENUE CALCULATION ---
+            
+            // Base uptime revenue
+            const baseUptime = state.streamHours * state.baseHourly * streakMult * resNorm * stabilityNorm;
+            
+            // Boosted amount
+            const boostBonus = baseUptime * (finalMult - 1);
+            
+            // Tips
+            const tipsRevenue = state.tipsHour * state.streamHours * z.tipMult;
+            
+            // Subscriptions (daily portion of monthly)
+            const subsRevenue = (state.subscribers * state.subPrice / 30) * z.subMult;
+            
+            // PPV
+            const ppvRev = state.ppvRevenue * z.ppvMult;
+            
+            // Gross
+            const grossDaily = baseUptime + boostBonus + tipsRevenue + subsRevenue + ppvRev;
+            
+            // Platform fee
+            const fee = grossDaily * (state.platformFee / 100);
+            const netDaily = Math.max(grossDaily - fee, state.minPayout);
+            
+            return {
+                // Multipliers
+                uptimeMult, viewerMult, engagementMult, moneyMult,
+                timeMult, discoveryMult, creatorMult, qualityMult,
+                finalMult, weightedMult, zoneMult, tzMult, seasonMult,
+                // Scores
+                uptimeScore, viewerScore, engagementScore, moneyScore,
+                timeScore, discoveryScore, creatorScore, qualityScore,
+                // Revenue
+                baseUptime, boostBonus, tipsRevenue, subsRevenue, ppvRev,
+                grossDaily, fee, netDaily,
+                // Extras
+                streakMult, resNorm, stabilityNorm
+            };
+        }
+        
+        // ============ UPDATE UI ============
+        function updateUI() {
+            const r = calculate();
+            
+            // Big multiplier
+            document.getElementById('totalMultiplier').textContent = r.finalMult.toFixed(2) + 'x';
+            
+            // Multiplier breakdown chips
+            const chips = [
+                { icon: 'fa-power-off', label: 'Uptime', val: r.uptimeMult, color: '#ffdd00' },
+                { icon: 'fa-eye', label: 'Viewers', val: r.viewerMult, color: '#00f0ff' },
+                { icon: 'fa-heart', label: 'Engage', val: r.engagementMult, color: '#ff00aa' },
+                { icon: 'fa-coins', label: 'Money', val: r.moneyMult, color: '#00ff88' },
+                { icon: 'fa-layer-group', label: 'Zone', val: r.zoneMult, color: '#aa66ff' }
+            ];
+            document.getElementById('multBreakdown').innerHTML = chips.map(c => 
+                `<div class="mult-chip"><i class="fas ${c.icon}" style="color:${c.color}"></i> ${c.label}: ${c.val.toFixed(2)}x</div>`
+            ).join('');
+            
+            // Output cards
+            document.getElementById('out-daily').textContent = '$' + r.netDaily.toFixed(2);
+            document.getElementById('out-daily-sub').textContent = `$${r.baseUptime.toFixed(2)} base + $${r.boostBonus.toFixed(2)} boost`;
+            document.getElementById('out-monthly').textContent = '$' + (r.netDaily * 30).toFixed(2);
+            document.getElementById('out-hourly').textContent = '$' + (r.netDaily / Math.max(state.streamHours, 1)).toFixed(2);
+            
+            // Category scores in header
+            document.getElementById('score-uptime').textContent = r.uptimeMult.toFixed(2) + 'x';
+            document.getElementById('score-viewers').textContent = r.viewerMult.toFixed(2) + 'x';
+            document.getElementById('score-engagement').textContent = r.engagementMult.toFixed(2) + 'x';
+            document.getElementById('score-money').textContent = r.moneyMult.toFixed(2) + 'x';
+            document.getElementById('score-time').textContent = r.timeMult.toFixed(2) + 'x';
+            document.getElementById('score-discovery').textContent = r.discoveryMult.toFixed(2) + 'x';
+            document.getElementById('score-creator').textContent = r.creatorMult.toFixed(2) + 'x';
+            document.getElementById('score-quality').textContent = r.qualityMult.toFixed(2) + 'x';
+            
+            // Revenue breakdown
+            document.getElementById('bd-uptime').textContent = '$' + r.baseUptime.toFixed(2);
+            document.getElementById('bd-boost').textContent = '+$' + r.boostBonus.toFixed(2);
+            document.getElementById('bd-tips').textContent = '$' + r.tipsRevenue.toFixed(2);
+            document.getElementById('bd-subs').textContent = '$' + r.subsRevenue.toFixed(2);
+            document.getElementById('bd-ppv').textContent = '$' + r.ppvRev.toFixed(2);
+            document.getElementById('bd-fee').textContent = '-$' + r.fee.toFixed(2);
+            document.getElementById('bd-net').textContent = '$' + r.netDaily.toFixed(2);
+            
+            // Category score bars
+            const scoreData = [
+                { name: 'Uptime', score: r.uptimeScore, color: '#ffdd00' },
+                { name: 'Viewers', score: r.viewerScore, color: '#00f0ff' },
+                { name: 'Engagement', score: r.engagementScore, color: '#ff00aa' },
+                { name: 'Monetization', score: r.moneyScore, color: '#00ff88' },
+                { name: 'Time', score: r.timeScore, color: '#ffdd00' },
+                { name: 'Discovery', score: r.discoveryScore, color: '#aa66ff' },
+                { name: 'Creator', score: r.creatorScore, color: '#ff4455' },
+                { name: 'Quality', score: r.qualityScore, color: '#ff8800' }
+            ];
+            document.getElementById('categoryScores').innerHTML = scoreData.map(s => `
+                <div class="score-bar-container">
+                    <div class="score-bar-header">
+                        <span>${s.name}</span>
+                        <span style="color: ${s.color}">${(s.score * 100).toFixed(0)}%</span>
+                    </div>
+                    <div class="score-bar">
+                        <div class="score-bar-fill" style="width: ${Math.min(Math.max(s.score * 100, 0), 100)}%; background: ${s.color};"></div>
+                    </div>
+                </div>
+            `).join('');
+            
+            // Formula
+            updateFormula(r);
+            
+            // Tips
+            updateTips(r);
+            
+            // Charts
+            updateCharts(r);
+        }
+        
+        function updateFormula(r) {
+            const html = `
+<div class="formula-line f-section">// === UPTIME (Always-On) ===</div>
+<div class="formula-line"><span class="f-var">baseUptime</span> <span class="f-op">=</span> <span class="f-num">${state.streamHours}</span>h <span class="f-op">×</span> $<span class="f-num">${state.baseHourly}</span></div>
+<div class="formula-line">  <span class="f-op">×</span> streak(<span class="f-num">${r.streakMult.toFixed(2)}</span>) <span class="f-op">×</span> res(<span class="f-num">${r.resNorm.toFixed(2)}</span>) <span class="f-op">×</span> stab(<span class="f-num">${r.stabilityNorm.toFixed(2)}</span>)</div>
+<div class="formula-line">  <span class="f-op">=</span> $<span class="f-num">${r.baseUptime.toFixed(2)}</span></div>
+
+<div class="formula-line f-section">// === CATEGORY MULTIPLIERS ===</div>
+<div class="formula-line"><span class="f-var">uptimeMult</span> <span class="f-op">=</span> <span class="f-num">${r.uptimeMult.toFixed(3)}</span> <span class="f-comment">(weight: ${weights.uptime}%)</span></div>
+<div class="formula-line"><span class="f-var">viewerMult</span> <span class="f-op">=</span> <span class="f-num">${r.viewerMult.toFixed(3)}</span> <span class="f-comment">(weight: ${weights.viewers}%)</span></div>
+<div class="formula-line"><span class="f-var">engageMult</span> <span class="f-op">=</span> <span class="f-num">${r.engagementMult.toFixed(3)}</span> <span class="f-comment">(weight: ${weights.engagement}%)</span></div>
+<div class="formula-line"><span class="f-var">moneyMult</span> <span class="f-op">=</span> <span class="f-num">${r.moneyMult.toFixed(3)}</span> <span class="f-comment">(weight: ${weights.money}%)</span></div>
+<div class="formula-line"><span class="f-var">timeMult</span> <span class="f-op">=</span> <span class="f-num">${r.timeMult.toFixed(3)}</span> <span class="f-comment">(weight: ${weights.time}%)</span></div>
+<div class="formula-line"><span class="f-var">discovMult</span> <span class="f-op">=</span> <span class="f-num">${r.discoveryMult.toFixed(3)}</span> <span class="f-comment">(weight: ${weights.discovery}%)</span></div>
+<div class="formula-line"><span class="f-var">creatorMult</span> <span class="f-op">=</span> <span class="f-num">${r.creatorMult.toFixed(3)}</span> <span class="f-comment">(weight: ${weights.creator}%)</span></div>
+<div class="formula-line"><span class="f-var">qualityMult</span> <span class="f-op">=</span> <span class="f-num">${r.qualityMult.toFixed(3)}</span> <span class="f-comment">(weight: ${weights.quality}%)</span></div>
+
+<div class="formula-line f-section">// === WEIGHTED COMBINATION ===</div>
+<div class="formula-line"><span class="f-var">weighted</span> <span class="f-op">=</span> <span class="f-num">${r.weightedMult.toFixed(3)}</span></div>
+<div class="formula-line"><span class="f-var">zone</span> <span class="f-op">=</span> <span class="f-num">${r.zoneMult.toFixed(2)}</span> <span class="f-comment">(${state.zone})</span></div>
+<div class="formula-line"><span class="f-var">timezone</span> <span class="f-op">=</span> <span class="f-num">${r.tzMult.toFixed(2)}</span></div>
+<div class="formula-line"><span class="f-var">seasonal</span> <span class="f-op">=</span> <span class="f-num">${r.seasonMult.toFixed(2)}</span></div>
+
+<div class="formula-line f-section">// === FINAL MULTIPLIER ===</div>
+<div class="formula-line"><span class="f-var">final</span> <span class="f-op">=</span> min(<span class="f-num">${r.weightedMult.toFixed(2)}</span> <span class="f-op">×</span> <span class="f-num">${r.zoneMult}</span> <span class="f-op">×</span> <span class="f-num">${r.tzMult}</span> <span class="f-op">×</span> <span class="f-num">${r.seasonMult}</span>, <span class="f-num">${state.maxBoost}</span>)</div>
+<div class="formula-line">  <span class="f-op">=</span> <span class="f-num" style="color:#00ff88;font-weight:bold;">${r.finalMult.toFixed(2)}x</span></div>
+
+<div class="formula-line f-section">// === DAILY REVENUE ===</div>
+<div class="formula-line"><span class="f-var">gross</span> <span class="f-op">=</span> $${r.baseUptime.toFixed(2)} + $${r.boostBonus.toFixed(2)} + $${r.tipsRevenue.toFixed(2)} + $${r.subsRevenue.toFixed(2)} + $${r.ppvRev.toFixed(2)}</div>
+<div class="formula-line">  <span class="f-op">=</span> $<span class="f-num">${r.grossDaily.toFixed(2)}</span></div>
+<div class="formula-line"><span class="f-var">net</span> <span class="f-op">=</span> $${r.grossDaily.toFixed(2)} <span class="f-op">-</span> ${state.platformFee}% <span class="f-op">=</span> <span class="f-num" style="color:#00ff88;">$${r.netDaily.toFixed(2)}</span></div>
+            `;
+            document.getElementById('formulaBox').innerHTML = html;
+        }
+        
+        function updateTips(r) {
+            const tips = [];
+            
+            if (state.streamHours < 4) tips.push('Increase stream hours for better uptime payout base.');
+            if (state.uptimeStreak === 0) tips.push('Start building a consecutive day streak for bonus multiplier.');
+            if (state.uptimeStreak > 0 && state.uptimeStreak < 7) tips.push(`${7 - state.uptimeStreak} more days to hit weekly streak milestone!`);
+            if (r.viewerScore < 0.2) tips.push('Focus on growing concurrent viewership.');
+            if (r.engagementScore < 0.2) tips.push('Boost engagement: encourage chat, clips, shares.');
+            if (state.revisitRate < 20) tips.push('Create recurring content to improve revisit rates.');
+            if (state.subscribers > 0 && state.newSubs === 0) tips.push('Run sub campaigns to grow your subscriber base.');
+            if (r.finalMult >= state.maxBoost * 0.95) tips.push('Near max boost! Focus on maintaining current metrics.');
+            if (state.zone === 'public' && state.tipsHour > 10) tips.push('Consider Home zone for better tip monetization.');
+            if (state.strikes > 0) tips.push('Strikes are hurting your multiplier. Maintain community guidelines.');
+            if (state.resolution < 720) tips.push('Upgrade to HD resolution for quality bonus.');
+            if (state.stability < 90) tips.push('Improve stream stability for better quality score.');
+            
+            if (tips.length === 0) tips.push('Great balance across all metrics. Keep it up!');
+            
+            document.getElementById('tipsContainer').innerHTML = tips.slice(0, 5).map(t => 
+                `<p style="margin-bottom:0.5rem;"><i class="fas fa-chevron-right" style="color:var(--accent-cyan);margin-right:0.5rem;"></i>${t}</p>`
+            ).join('');
+        }
+        
+        // ============ CHARTS ============
+        function initCharts() {
+            const defaultOpts = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } }
+            };
+            
+            charts.revenue = new Chart(document.getElementById('revenueChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Uptime', 'Boost', 'Tips', 'Subs', 'PPV'],
+                    datasets: [{ data: [1,1,1,1,1], backgroundColor: ['#ffdd00','#00f0ff','#00ff88','#ff00aa','#aa66ff'], borderWidth: 0 }]
+                },
+                options: { ...defaultOpts, plugins: { legend: { display: true, position: 'right', labels: { color: '#6b7a94', font: { size: 10 } } } } }
+            });
+            
+            charts.category = new Chart(document.getElementById('categoryChart'), {
+                type: 'bar',
+                data: {
+                    labels: ['Uptime', 'Viewers', 'Engage', 'Money', 'Time', 'Discov', 'Creator', 'Quality'],
+                    datasets: [{ data: [1,1,1,1,1,1,1,1], backgroundColor: ['#ffdd00','#00f0ff','#ff00aa','#00ff88','#ffdd00','#aa66ff','#ff4455','#ff8800'] }]
+                },
+                options: { ...defaultOpts, scales: { y: { beginAtZero: true, max: 2.5, grid: { color: '#2a3545' }, ticks: { color: '#6b7a94' } }, x: { grid: { display: false }, ticks: { color: '#6b7a94', font: { size: 9 } } } } }
+            });
+            
+            charts.projection = new Chart(document.getElementById('projectionChart'), {
+                type: 'line',
+                data: {
+                    labels: ['Day 1', 'Week 1', 'Week 2', 'Week 3', 'Month'],
+                    datasets: [{ data: [0,0,0,0,0], borderColor: '#00f0ff', backgroundColor: 'rgba(0,240,255,0.1)', fill: true, tension: 0.4 }]
+                },
+                options: { ...defaultOpts, scales: { y: { grid: { color: '#2a3545' }, ticks: { color: '#6b7a94' } }, x: { grid: { display: false }, ticks: { color: '#6b7a94' } } } }
+            });
+            
+            charts.radar = new Chart(document.getElementById('radarChart'), {
+                type: 'radar',
+                data: {
+                    labels: ['Watch Time', 'Retention', 'Revisit', 'Chat', 'Clips', 'Shares'],
+                    datasets: [{ data: [0,0,0,0,0,0], borderColor: '#ff00aa', backgroundColor: 'rgba(255,0,170,0.2)', pointBackgroundColor: '#ff00aa' }]
+                },
+                options: { ...defaultOpts, scales: { r: { grid: { color: '#2a3545' }, angleLines: { color: '#2a3545' }, pointLabels: { color: '#6b7a94', font: { size: 9 } }, ticks: { display: false }, min: 0, max: 1 } } }
+            });
+        }
+        
+        function updateCharts(r) {
+            // Revenue pie
+            charts.revenue.data.datasets[0].data = [r.baseUptime, r.boostBonus, r.tipsRevenue, r.subsRevenue, r.ppvRev];
+            charts.revenue.update('none');
+            
+            // Category bars
+            charts.category.data.datasets[0].data = [r.uptimeMult, r.viewerMult, r.engagementMult, r.moneyMult, r.timeMult, r.discoveryMult, r.creatorMult, r.qualityMult];
+            charts.category.update('none');
+            
+            // Projection
+            charts.projection.data.datasets[0].data = [r.netDaily, r.netDaily * 7, r.netDaily * 14, r.netDaily * 21, r.netDaily * 30];
+            charts.projection.update('none');
+            
+            // Radar
+            charts.radar.data.datasets[0].data = [
+                Math.min(state.avgWatchTime / 30, 1),
+                state.retention / 100,
+                state.revisitRate / 100,
+                Math.min(state.chatMsgs / 200, 1),
+                Math.min(state.clips / 20, 1),
+                Math.min(state.shares / 100, 1)
+            ];
+            charts.radar.update('none');
+        }
+        
+        // ============ EVENT HANDLERS ============
+        function update(param) {
+            const el = document.getElementById(param);
+            if (!el) return;
+            
+            let val = el.type === 'range' ? parseFloat(el.value) : el.value;
+            if (el.type === 'select-one' && !isNaN(parseFloat(val))) {
+                // Keep as string for selects that need string matching
+            }
+            state[param] = val;
+            
+            const display = document.getElementById('val-' + param);
+            if (display) {
+                if (typeof val === 'number') {
+                    display.textContent = val % 1 === 0 ? val : val.toFixed(2);
+                }
+            }
+            
+            updateUI();
+        }
+        
+        function updateWeight(cat) {
+            const el = document.getElementById('w-' + cat);
+            weights[cat] = parseInt(el.value);
+            document.getElementById('wv-' + cat).textContent = weights[cat] + '%';
+            
+            const total = Object.values(weights).reduce((a, b) => a + b, 0);
+            document.getElementById('weight-total').textContent = total + '%';
+            document.getElementById('weight-total').style.color = total === 100 ? 'var(--accent-green)' : 'var(--accent-orange)';
+            
+            updateUI();
+        }
+        
+        function setZone(zone) {
+            state.zone = zone;
+            document.querySelectorAll('.zone-btn').forEach(el => el.classList.remove('active'));
+            document.querySelector('.zone-btn.' + zone).classList.add('active');
+            updateUI();
+        }
+        
+        function toggleCategory(cat) {
+            document.querySelector(`.category[data-category="${cat}"]`).classList.toggle('open');
+        }
+        
+        function loadPreset(name) {
+            const presets = {
+                passive: { streamHours: 24, baseHourly: 0.25, avgViewers: 5, avgWatchTime: 2, tipsHour: 0, subscribers: 0, peakViewers: 10, chatMsgs: 0 },
+                casual: { streamHours: 4, baseHourly: 0.50, avgViewers: 30, avgWatchTime: 5, tipsHour: 3, subscribers: 10, peakViewers: 50, chatMsgs: 5 },
+                active: { streamHours: 8, baseHourly: 0.75, avgViewers: 200, avgWatchTime: 10, tipsHour: 15, subscribers: 100, peakViewers: 400, chatMsgs: 50 },
+                pro: { streamHours: 10, baseHourly: 1.00, avgViewers: 1000, avgWatchTime: 20, tipsHour: 75, subscribers: 500, peakViewers: 2000, chatMsgs: 200, uptimeStreak: 14 },
+                viral: { streamHours: 12, baseHourly: 1.50, avgViewers: 5000, avgWatchTime: 30, tipsHour: 250, subscribers: 2000, peakViewers: 15000, chatMsgs: 500, uptimeStreak: 30, clips: 50, shares: 200 }
+            };
+            
+            const p = presets[name];
+            Object.keys(p).forEach(k => {
+                state[k] = p[k];
+                const el = document.getElementById(k);
+                if (el) el.value = p[k];
+                const disp = document.getElementById('val-' + k);
+                if (disp) disp.textContent = p[k];
+            });
+            
+            document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            updateUI();
+        }
+        
+        function saveScenario() {
+            const r = calculate();
+            scenarios.push({
+                id: Date.now(),
+                name: 'Scenario ' + (scenarios.length + 1),
+                zone: state.zone,
+                mult: r.finalMult,
+                daily: r.netDaily,
+                monthly: r.netDaily * 30,
+                state: { ...state }
+            });
+            renderScenarios();
+            showToast('Scenario saved!');
+        }
+        
+        function renderScenarios() {
+            if (scenarios.length === 0) {
+                document.getElementById('scenarioBody').innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">No scenarios saved</td></tr>';
+                return;
+            }
+            document.getElementById('scenarioBody').innerHTML = scenarios.map(s => `
+                <tr>
+                    <td>${s.name}</td>
+                    <td style="text-transform:capitalize;">${s.zone}</td>
+                    <td style="color:var(--accent-cyan);">${s.mult.toFixed(2)}x</td>
+                    <td style="color:var(--accent-green);">$${s.daily.toFixed(2)}</td>
+                    <td style="color:var(--accent-green);">$${s.monthly.toFixed(2)}</td>
+                    <td>
+                        <button class="btn" style="padding:0.25rem 0.5rem;font-size:0.7rem;" onclick="loadScenarioState(${s.id})"><i class="fas fa-upload"></i></button>
+                        <button class="btn" style="padding:0.25rem 0.5rem;font-size:0.7rem;border-color:var(--accent-red);color:var(--accent-red);" onclick="deleteScenario(${s.id})"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+        
+        function loadScenarioState(id) {
+            const s = scenarios.find(x => x.id === id);
+            if (!s) return;
+            Object.assign(state, s.state);
+            Object.keys(state).forEach(k => {
+                const el = document.getElementById(k);
+                if (el) el.value = state[k];
+                const disp = document.getElementById('val-' + k);
+                if (disp && typeof state[k] === 'number') disp.textContent = state[k] % 1 === 0 ? state[k] : state[k].toFixed(2);
+            });
+            setZone(state.zone);
+            updateUI();
+        }
+        
+        function deleteScenario(id) {
+            scenarios = scenarios.filter(s => s.id !== id);
+            renderScenarios();
+        }
+        
+        function clearScenarios() {
+            scenarios = [];
+            renderScenarios();
+        }
+        
+        function resetAll() {
+            location.reload();
+        }
+        
+        function exportConfig() {
+            const data = { state, weights, scenarios };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'smartgrid-config.json';
+            a.click();
+            showToast('Config exported!');
+        }
+        
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 2000);
+        }
+        
+        // ============ INIT ============
+        document.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            updateUI();
+        });
+    </script>
+</body>
+</html>

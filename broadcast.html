@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>OmniGrid Broadcast</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0f;
+            color: #fff;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        .camera-view {
+            position: fixed;
+            inset: 0;
+            background: #000;
+        }
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 1rem;
+            background: linear-gradient(rgba(0,0,0,0.7), transparent);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            z-index: 10;
+        }
+        .logo {
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+        .logo span { color: #6366f1; }
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 0.8rem;
+            background: rgba(0,0,0,0.5);
+            border-radius: 20px;
+            font-size: 0.85rem;
+        }
+        .status.live { background: #ef4444; }
+        .status.connecting { background: #f59e0b; }
+        .status::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: currentColor;
+            border-radius: 50%;
+        }
+        .status.live::before { animation: pulse 1s infinite; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+        
+        .controls {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 1.5rem;
+            background: linear-gradient(transparent, rgba(0,0,0,0.9));
+            z-index: 10;
+        }
+        .room-info {
+            text-align: center;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: #888;
+        }
+        .room-code {
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: 0.2em;
+            color: #6366f1;
+        }
+        .btn-row {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+        }
+        .btn {
+            background: #6366f1;
+            color: #fff;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 50px;
+            font-size: 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .btn:hover { background: #4f46e5; }
+        .btn-icon {
+            width: 50px;
+            height: 50px;
+            padding: 0;
+            border-radius: 50%;
+            justify-content: center;
+        }
+        .btn-flip { background: #333; }
+        .btn-end { background: #ef4444; }
+        
+        .setup-screen {
+            position: fixed;
+            inset: 0;
+            background: #0a0a0f;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            text-align: center;
+            z-index: 100;
+        }
+        .setup-screen.hidden { display: none; }
+        .setup-screen h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+        .setup-screen p { color: #888; margin-bottom: 2rem; }
+        .setup-screen .btn { width: 100%; max-width: 300px; justify-content: center; }
+        
+        .viewers {
+            position: fixed;
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.7);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <div class="setup-screen" id="setupScreen">
+        <div class="logo">Omni<span>Grid</span></div>
+        <h1>Go Live</h1>
+        <p>Start broadcasting from this device</p>
+        <button class="btn" onclick="startBroadcast()">
+            <i class="fa fa-video"></i> Enable Camera
+        </button>
+    </div>
+    
+    <div class="camera-view">
+        <video id="video" autoplay muted playsinline></video>
+    </div>
+    
+    <div class="overlay">
+        <div class="logo">Omni<span>Grid</span></div>
+        <div class="status" id="status">Waiting</div>
+    </div>
+    
+    <div class="viewers" id="viewers" style="display:none">
+        <i class="fa fa-eye"></i> <span id="viewerCount">0</span> watching
+    </div>
+    
+    <div class="controls">
+        <div class="room-info">
+            Share this code with viewers<br>
+            <div class="room-code" id="roomCode">------</div>
+        </div>
+        <div class="btn-row">
+            <button class="btn btn-icon btn-flip" onclick="flipCamera()">
+                <i class="fa fa-sync"></i>
+            </button>
+            <button class="btn btn-end" onclick="endBroadcast()" style="display:none" id="endBtn">
+                <i class="fa fa-stop"></i> End
+            </button>
+        </div>
+    </div>
+    
+    <script>
+        const video = document.getElementById('video');
+        let stream = null;
+        let pc = null;
+        let facingMode = 'user';
+        let room = new URLSearchParams(location.search).get('room') || generateRoom();
+        let pollInterval = null;
+        
+        document.getElementById('roomCode').textContent = room;
+        
+        function generateRoom() {
+            return Math.random().toString(36).substring(2, 8).toUpperCase();
+        }
+        
+        async function startBroadcast() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
+                    audio: true
+                });
+                video.srcObject = stream;
+                document.getElementById('setupScreen').classList.add('hidden');
+                document.getElementById('endBtn').style.display = 'flex';
+                
+                // Reset room and start signaling
+                await fetch(`signal.php?room=${room}&action=reset`);
+                initWebRTC();
+                
+            } catch (err) {
+                alert('Camera access denied');
+                console.error(err);
+            }
+        }
+        
+        async function initWebRTC() {
+            setStatus('connecting', 'Waiting for viewers...');
+            
+            pc = new RTCPeerConnection({
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' }
+                ]
+            });
+            
+            // Add tracks
+            stream.getTracks().forEach(track => pc.addTrack(track, stream));
+            
+            // ICE candidates
+            pc.onicecandidate = async (e) => {
+                if (e.candidate) {
+                    await fetch(`signal.php?room=${room}&action=candidate`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ from: 'camera', candidate: e.candidate })
+                    });
+                }
+            };
+            
+            pc.onconnectionstatechange = () => {
+                console.log('Connection state:', pc.connectionState);
+                if (pc.connectionState === 'connected') {
+                    setStatus('live', 'LIVE');
+                    document.getElementById('viewers').style.display = 'block';
+                } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+                    setStatus('connecting', 'Reconnecting...');
+                    document.getElementById('viewers').style.display = 'none';
+                    // Try to reconnect
+                    setTimeout(() => {
+                        if (stream) initWebRTC();
+                    }, 2000);
+                }
+            };
+            
+            // Create and send offer
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            
+            await fetch(`signal.php?room=${room}&action=offer`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(offer)
+            });
+            
+            // Poll for answer
+            startPolling();
+        }
+        
+        function startPolling() {
+            if (pollInterval) clearInterval(pollInterval);
+            
+            pollInterval = setInterval(async () => {
+                try {
+                    const res = await fetch(`signal.php?room=${room}&action=poll&from=camera`);
+                    const data = await res.json();
+                    
+                    if (data.answer && pc.signalingState !== 'stable') {
+                        await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+                        console.log('Set remote answer');
+                    }
+                    
+                    if (data.candidate) {
+                        await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+                        console.log('Added ICE candidate');
+                    }
+                } catch (err) {
+                    console.error('Poll error:', err);
+                }
+            }, 1000);
+        }
+        
+        async function flipCamera() {
+            facingMode = facingMode === 'user' ? 'environment' : 'user';
+            
+            if (stream) {
+                stream.getTracks().forEach(t => t.stop());
+            }
+            
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
+                audio: true
+            });
+            video.srcObject = stream;
+            
+            // Reconnect WebRTC with new stream
+            if (pc) {
+                const senders = pc.getSenders();
+                const videoTrack = stream.getVideoTracks()[0];
+                const audioTrack = stream.getAudioTracks()[0];
+                
+                for (const sender of senders) {
+                    if (sender.track?.kind === 'video' && videoTrack) {
+                        await sender.replaceTrack(videoTrack);
+                    }
+                    if (sender.track?.kind === 'audio' && audioTrack) {
+                        await sender.replaceTrack(audioTrack);
+                    }
+                }
+            }
+        }
+        
+        function endBroadcast() {
+            if (stream) {
+                stream.getTracks().forEach(t => t.stop());
+                stream = null;
+            }
+            if (pc) {
+                pc.close();
+                pc = null;
+            }
+            if (pollInterval) {
+                clearInterval(pollInterval);
+                pollInterval = null;
+            }
+            
+            location.reload();
+        }
+        
+        function setStatus(cls, text) {
+            const el = document.getElementById('status');
+            el.className = 'status ' + cls;
+            el.textContent = text;
+        }
+        
+        // Prevent sleep
+        let wakeLock = null;
+        async function requestWakeLock() {
+            try {
+                wakeLock = await navigator.wakeLock.request('screen');
+            } catch (err) {}
+        }
+        requestWakeLock();
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') requestWakeLock();
+        });
+    </script>
+</body>
+</html>
