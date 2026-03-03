@@ -1,0 +1,1498 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmniGrid – Technical Specs & Architecture</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;600;800&display=swap');
+        
+        :root {
+            --bg-primary: #0a0e14;
+            --bg-secondary: #12171f;
+            --bg-tertiary: #1a2130;
+            --accent-cyan: #00f0ff;
+            --accent-magenta: #ff00aa;
+            --accent-green: #00ff88;
+            --accent-orange: #ff8800;
+            --text-primary: #e8edf5;
+            --text-muted: #6b7a94;
+            --border-color: #2a3545;
+            --glow-cyan: 0 0 30px rgba(0, 240, 255, 0.3);
+            --glow-magenta: 0 0 30px rgba(255, 0, 170, 0.3);
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+        
+        /* Animated grid background */
+        .grid-bg {
+            position: fixed;
+            inset: 0;
+            background-image: 
+                linear-gradient(rgba(0,240,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,240,255,0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: gridPulse 4s ease-in-out infinite;
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        @keyframes gridPulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+        
+        /* Scanning line effect */
+        .scan-line {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+            animation: scanDown 8s linear infinite;
+            z-index: 1;
+            pointer-events: none;
+        }
+        
+        @keyframes scanDown {
+            0% { transform: translateY(-100%); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateY(100vh); opacity: 0; }
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+            position: relative;
+            z-index: 2;
+        }
+        
+        /* Header */
+        header {
+            text-align: center;
+            padding: 4rem 0;
+            position: relative;
+        }
+        
+        .logo-container {
+            display: inline-block;
+            position: relative;
+        }
+        
+        h1 {
+            font-size: 4rem;
+            font-weight: 800;
+            letter-spacing: -2px;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-magenta));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: titleGlow 3s ease-in-out infinite;
+        }
+        
+        @keyframes titleGlow {
+            0%, 100% { filter: drop-shadow(0 0 20px rgba(0,240,255,0.5)); }
+            50% { filter: drop-shadow(0 0 40px rgba(255,0,170,0.5)); }
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--accent-green);
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            margin-top: 1.5rem;
+            font-size: 0.85rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+        }
+        
+        /* Navigation Tabs */
+        .nav-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin: 2rem 0 3rem;
+        }
+        
+        .nav-tab {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+        
+        .nav-tab:hover {
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+            transform: translateY(-2px);
+        }
+        
+        .nav-tab.active {
+            background: linear-gradient(135deg, rgba(0,240,255,0.15), rgba(255,0,170,0.15));
+            border-color: var(--accent-cyan);
+            color: var(--text-primary);
+            box-shadow: var(--glow-cyan);
+        }
+        
+        .nav-tab i {
+            margin-right: 0.5rem;
+        }
+        
+        /* Sections */
+        .section {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .section.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .section-title {
+            font-size: 2rem;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .section-title i {
+            color: var(--accent-cyan);
+        }
+        
+        /* Cards */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+        
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-magenta));
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            border-color: var(--accent-cyan);
+            box-shadow: var(--glow-cyan);
+        }
+        
+        .card:hover::before {
+            transform: scaleX(1);
+        }
+        
+        .card-icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, rgba(0,240,255,0.2), rgba(255,0,170,0.2));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+            color: var(--accent-cyan);
+        }
+        
+        .card h3 {
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .card p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+        
+        /* Architecture Diagram */
+        .diagram-container {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 2rem;
+            margin: 2rem 0;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .diagram-title {
+            font-size: 1.1rem;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent-cyan);
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .architecture-svg {
+            width: 100%;
+            height: auto;
+            min-height: 400px;
+        }
+        
+        /* Animated nodes */
+        .arch-node {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .arch-node:hover {
+            filter: drop-shadow(0 0 15px rgba(0,240,255,0.8));
+        }
+        
+        .data-flow {
+            stroke-dasharray: 10;
+            animation: flowDash 1s linear infinite;
+        }
+        
+        @keyframes flowDash {
+            to { stroke-dashoffset: -20; }
+        }
+        
+        /* Spec Table */
+        .spec-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+        }
+        
+        .spec-table th,
+        .spec-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .spec-table th {
+            color: var(--accent-cyan);
+            font-weight: 600;
+            background: var(--bg-tertiary);
+        }
+        
+        .spec-table tr {
+            transition: background 0.2s ease;
+        }
+        
+        .spec-table tr:hover {
+            background: rgba(0,240,255,0.05);
+        }
+        
+        .spec-value {
+            color: var(--accent-green);
+        }
+        
+        /* Flow Diagram */
+        .flow-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+        
+        .flow-step {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            text-align: center;
+            min-width: 140px;
+            position: relative;
+            animation: flowStepPulse 2s ease-in-out infinite;
+        }
+        
+        .flow-step:nth-child(2) { animation-delay: 0.2s; }
+        .flow-step:nth-child(3) { animation-delay: 0.4s; }
+        .flow-step:nth-child(4) { animation-delay: 0.6s; }
+        .flow-step:nth-child(5) { animation-delay: 0.8s; }
+        
+        @keyframes flowStepPulse {
+            0%, 100% { border-color: var(--border-color); }
+            50% { border-color: var(--accent-cyan); }
+        }
+        
+        .flow-step i {
+            font-size: 1.5rem;
+            color: var(--accent-cyan);
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+        
+        .flow-arrow {
+            color: var(--accent-magenta);
+            font-size: 1.5rem;
+            animation: arrowPulse 1s ease-in-out infinite;
+        }
+        
+        @keyframes arrowPulse {
+            0%, 100% { opacity: 0.5; transform: translateX(0); }
+            50% { opacity: 1; transform: translateX(5px); }
+        }
+        
+        /* Interactive Metrics */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+        
+        .metric-card {
+            background: linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary));
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .metric-card:hover {
+            transform: scale(1.05);
+            border-color: var(--accent-cyan);
+        }
+        
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .metric-label {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        /* Code Blocks */
+        .code-block {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+        
+        .code-keyword { color: var(--accent-magenta); }
+        .code-string { color: var(--accent-green); }
+        .code-number { color: var(--accent-orange); }
+        .code-comment { color: var(--text-muted); }
+        
+        /* Interactive Toggles */
+        .toggle-group {
+            display: flex;
+            gap: 1rem;
+            margin: 1rem 0;
+            flex-wrap: wrap;
+        }
+        
+        .toggle-btn {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+        
+        .toggle-btn.active {
+            background: var(--accent-cyan);
+            color: var(--bg-primary);
+            border-color: var(--accent-cyan);
+        }
+        
+        /* Grid Zone Diagram */
+        .zone-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+        
+        .zone-card {
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .zone-card.public { border-color: var(--accent-cyan); }
+        .zone-card.home { border-color: var(--accent-green); }
+        .zone-card.nsfw { border-color: var(--accent-magenta); }
+        
+        .zone-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .zone-card.public:hover { box-shadow: 0 0 30px rgba(0,240,255,0.3); }
+        .zone-card.home:hover { box-shadow: 0 0 30px rgba(0,255,136,0.3); }
+        .zone-card.nsfw:hover { box-shadow: 0 0 30px rgba(255,0,170,0.3); }
+        
+        .zone-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .zone-card.public .zone-icon { color: var(--accent-cyan); }
+        .zone-card.home .zone-icon { color: var(--accent-green); }
+        .zone-card.nsfw .zone-icon { color: var(--accent-magenta); }
+        
+        /* Live indicator */
+        .live-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            background: rgba(255,0,0,0.2);
+            border: 1px solid #ff4444;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            color: #ff4444;
+            animation: livePulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes livePulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            h1 { font-size: 2.5rem; }
+            .zone-grid { grid-template-columns: 1fr; }
+            .flow-container { flex-direction: column; }
+            .flow-arrow { transform: rotate(90deg); }
+        }
+        
+        /* Tooltip */
+        .tooltip {
+            position: relative;
+        }
+        
+        .tooltip::after {
+            content: attr(data-tip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%) translateY(-5px);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--accent-cyan);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s ease;
+            z-index: 100;
+        }
+        
+        .tooltip:hover::after {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(-10px);
+        }
+        
+        /* Progress bars */
+        .progress-bar {
+            height: 8px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 0.5rem 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-green));
+            border-radius: 4px;
+            animation: progressLoad 2s ease-out forwards;
+        }
+        
+        @keyframes progressLoad {
+            from { width: 0; }
+        }
+    
+        /* ==================== INVITEGATE STYLES ==================== */
+        .ig-gate{position:fixed;inset:0;background:inherit;z-index:9999;display:flex;align-items:center;justify-content:center}
+        .ig-gate::before{content:'';position:absolute;inset:0;background:inherit;filter:brightness(0.8)}
+        .ig-box{position:relative;text-align:center;max-width:440px;padding:40px 30px}
+        .ig-icon{width:90px;height:90px;margin:0 auto 24px;background:#25264622;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:36px;color:#252646}
+        .ig-icon.success{background:#22c55e22;color:#22c55e}
+        .ig-icon.error{background:#ef444422;color:#ef4444}
+        .ig-icon.pulse{animation:igPulse 2s infinite}
+        .ig-box h2{margin:0 0 10px;font-size:24px}
+        .ig-box>p{opacity:0.7;font-size:14px;line-height:1.6;margin-bottom:20px}
+        .ig-form{text-align:left}
+        .ig-label{display:block;font-size:13px;opacity:0.7;margin-bottom:6px}
+        .ig-opt{font-size:10px;opacity:0.4;margin-left:4px}
+        .ig-input{width:100%;padding:12px 14px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;color:inherit;font-size:14px;margin-bottom:14px;font-family:inherit}
+        .ig-input:focus{outline:none;border-color:#252646}
+        .ig-input::placeholder{opacity:0.5}
+        textarea.ig-input{min-height:80px;resize:vertical}
+        .ig-btn{width:100%;padding:14px;background:linear-gradient(135deg,#252646,#22c55e);border:none;border-radius:10px;color:#fff;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
+        .ig-btn:hover{filter:brightness(1.1)}
+        .ig-btn-row{display:flex;gap:10px;margin-top:10px}
+        .ig-btn-row .ig-btn{flex:1}
+        .ig-btn-secondary{background:rgba(255,255,255,0.1)}
+        .ig-consent{margin:20px 0;padding:16px;background:rgba(255,255,255,0.03);border-radius:10px;text-align:left}
+        .ig-consent-item{display:flex;align-items:center;gap:12px;padding:10px 0;font-size:13px;opacity:0.7;border-bottom:1px solid rgba(255,255,255,0.05)}
+        .ig-consent-item:last-child{border:none}
+        .ig-consent-item span:first-child{color:#252646;width:20px;text-align:center}
+        .ig-scan{position:relative;width:180px;height:180px;margin:30px auto}
+        .ig-scan-circle{position:absolute;inset:0;border:2px solid rgba(255,255,255,0.1);border-radius:50%}
+        .ig-scan-circle:nth-child(2){inset:20px;border-color:#25264644}
+        .ig-scan-circle:nth-child(3){inset:40px;border-color:#22c55e44}
+        .ig-scan-ring{position:absolute;inset:0;border:3px solid transparent;border-top-color:#252646;border-radius:50%;animation:igSpin 1s linear infinite}
+        .ig-scan-ring:nth-child(5){inset:20px;border-top-color:#22c55e;animation-duration:1.5s;animation-direction:reverse}
+        .ig-scan-core{position:absolute;inset:55px;background:radial-gradient(circle,#25264633 0%,transparent 70%);border-radius:50%;animation:igPulse 1.5s ease-in-out infinite}
+        .ig-data-stream{margin-top:20px;height:120px;overflow-y:auto;text-align:left;font-family:monospace;font-size:11px;color:#252646;background:rgba(0,0,0,0.3);border-radius:10px;padding:10px}
+        .ig-data-line{opacity:0;animation:igFadeIn 0.3s forwards;margin-bottom:4px}
+        .ig-orbs{display:flex;justify-content:center;gap:30px;margin:30px 0}
+        .ig-orb{width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;animation:igBounce 0.6s ease-in-out infinite alternate}
+        .ig-orb:nth-child(1){background:#25264622;color:#252646;animation-delay:0s}
+        .ig-orb:nth-child(2){background:#22c55e22;color:#22c55e;animation-delay:0.2s}
+        .ig-orb:nth-child(3){background:#a855f722;color:#a855f7;animation-delay:0.4s}
+        .ig-progress{width:100%;height:6px;background:rgba(255,255,255,0.1);border-radius:3px;margin:20px 0;overflow:hidden}
+        .ig-progress-bar{height:100%;background:linear-gradient(90deg,#252646,#22c55e);width:0%;transition:width 0.1s}
+        .ig-status{font-family:monospace;font-size:13px;color:#252646;min-height:20px}
+        .ig-token{margin-top:16px;padding:12px;background:#22c55e22;border:1px solid #22c55e44;border-radius:10px;font-family:monospace;font-size:10px;word-break:break-all;color:#22c55e}
+        .ig-entering{margin-top:16px;font-size:14px;color:#252646;animation:igPulse 1.5s infinite}
+        .ig-spinner{width:50px;height:50px;border:3px solid #25264633;border-top-color:#252646;border-radius:50%;animation:igSpin 0.8s linear infinite;margin:24px auto}
+        .ig-step{display:none}
+        .ig-step.active{display:block;animation:igFadeIn 0.4s ease-out}
+        @keyframes igSpin{to{transform:rotate(360deg)}}
+        @keyframes igPulse{0%,100%{opacity:1}50%{opacity:0.5}}
+        @keyframes igBounce{from{transform:translateY(0) scale(1)}to{transform:translateY(-10px) scale(1.1)}}
+        @keyframes igFadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+        .page,.container,.app,.wrapper,#app,#root,main{display:none}
+        body.ig-valid .page,body.ig-valid .container,body.ig-valid .app,body.ig-valid .wrapper,body.ig-valid #app,body.ig-valid #root,body.ig-valid main{display:block;display:flex;display:grid}
+        body.ig-valid .ig-gate{display:none}
+    </style>
+</head>
+<body>
+
+<!-- INVITEGATE -->
+<div class="ig-gate" id="igGate">
+    <div class="ig-box ig-step active" id="igStepCheck"><div class="ig-icon pulse">🔐</div><h2>Checking Access...</h2><div class="ig-spinner"></div></div>
+    <div class="ig-box ig-step" id="igStepRequest"><div class="ig-icon error">🔒</div><h2>Invite Required</h2><p>OmniGrid Specs is invite-only. Request access below or return with a valid invite link.</p><div class="ig-form"><label class="ig-label">Who are you? <span class="ig-opt">(optional)</span></label><input type="text" class="ig-input" id="igWho" placeholder="Your name or handle"><label class="ig-label">Drop a note <span class="ig-opt">(optional)</span></label><textarea class="ig-input" id="igNote" placeholder="Tell us why you'd like access..."></textarea><button class="ig-btn" onclick="igSubmitRequest()">📨 Request Access</button></div></div>
+    <div class="ig-box ig-step" id="igStepConsent"><div class="ig-icon">🛡️</div><h2>Quick Security Check</h2><p>We collect some browser data to evaluate your request.</p><div class="ig-consent"><div class="ig-consent-item"><span>🌐</span> IP Address & Location</div><div class="ig-consent-item"><span>🖥️</span> Screen Resolution</div><div class="ig-consent-item"><span>🕐</span> Timezone</div><div class="ig-consent-item"><span>🌍</span> Browser Language</div><div class="ig-consent-item"><span>💻</span> Platform Info</div></div><div class="ig-btn-row"><button class="ig-btn ig-btn-secondary" onclick="igShowStep('igStepRequest')">← Back</button><button class="ig-btn" onclick="igGrantConsent()">✓ Continue</button></div></div>
+    <div class="ig-box ig-step" id="igStepScan"><div class="ig-scan"><div class="ig-scan-circle"></div><div class="ig-scan-circle"></div><div class="ig-scan-circle"></div><div class="ig-scan-ring"></div><div class="ig-scan-ring"></div><div class="ig-scan-core"></div></div><h2>Gathering Data...</h2><div class="ig-data-stream" id="igDataStream"></div></div>
+    <div class="ig-box ig-step" id="igStepEval"><div class="ig-orbs"><div class="ig-orb">👤</div><div class="ig-orb">🧠</div><div class="ig-orb">⚖️</div></div><h2>Evaluating Request</h2><div class="ig-progress"><div class="ig-progress-bar" id="igProgress"></div></div><div class="ig-status" id="igStatus">Initializing...</div></div>
+    <div class="ig-box ig-step" id="igStepApproved"><div class="ig-icon success">✓</div><h2>Access Granted!</h2><p>Your request has been approved. Welcome!</p><div class="ig-token" id="igToken"></div><p class="ig-entering">Entering application...</p></div>
+    <div class="ig-box ig-step" id="igStepDenied"><div class="ig-icon error">✗</div><h2>Request Denied</h2><p id="igDeniedReason">Your request could not be approved.</p><button class="ig-btn ig-btn-secondary" style="margin-top:20px" onclick="igShowStep('igStepRequest')">← Try Again</button></div>
+    <div class="ig-box ig-step" id="igStepPending"><div class="ig-icon pulse">📡</div><h2>Under Review</h2><p>Your request is being reviewed <strong style="color:#252646">in real-time</strong>.</p><p style="margin-top:12px;font-size:13px;color:#252646;animation:igPulse 1.5s infinite">● Keep this page open</p><div class="ig-spinner"></div><p style="margin-top:16px;font-size:12px;opacity:0.6">Request ID: <span id="igPendingId" style="font-family:monospace"></span></p></div>
+</div>
+
+
+    <div class="grid-bg"></div>
+    <div class="scan-line"></div>
+    
+    <div class="container">
+        <header>
+            <div class="logo-container">
+                <h1><i class="fas fa-broadcast-tower"></i> OmniGrid</h1>
+            </div>
+            <p class="subtitle">Technical Specifications & System Architecture</p>
+            <div class="status-badge">
+                <span class="status-dot"></span>
+                <span>System Documentation v1.0</span>
+            </div>
+        </header>
+        
+        <nav class="nav-tabs">
+            <button class="nav-tab active" data-section="overview">
+                <i class="fas fa-eye"></i> Overview
+            </button>
+            <button class="nav-tab" data-section="architecture">
+                <i class="fas fa-project-diagram"></i> Architecture
+            </button>
+            <button class="nav-tab" data-section="dataflow">
+                <i class="fas fa-exchange-alt"></i> Data Flow
+            </button>
+            <button class="nav-tab" data-section="zones">
+                <i class="fas fa-layer-group"></i> Grid Zones
+            </button>
+            <button class="nav-tab" data-section="smartgrid">
+                <i class="fas fa-brain"></i> smartGrid
+            </button>
+            <button class="nav-tab" data-section="specs">
+                <i class="fas fa-cog"></i> Tech Specs
+            </button>
+            <button class="nav-tab" data-section="api">
+                <i class="fas fa-plug"></i> API
+            </button>
+        </nav>
+        
+        <!-- OVERVIEW SECTION -->
+        <section class="section active" id="overview">
+            <h2 class="section-title"><i class="fas fa-globe"></i> Platform Overview</h2>
+            
+            <div class="card-grid">
+                <div class="card">
+                    <div class="card-icon"><i class="fas fa-video"></i></div>
+                    <h3>Live Reality Streams</h3>
+                    <p>Turn any camera into a live channel. Streets, homes, studios – broadcast your world 24/7.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon"><i class="fas fa-user-secret"></i></div>
+                    <h3>Anonymous Viewing</h3>
+                    <p>Browse the entire grid without an account. Zero tracking, zero footprint.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon"><i class="fas fa-coins"></i></div>
+                    <h3>Adaptive Earnings</h3>
+                    <p>smartGrid optimizes your revenue based on engagement, not flat rates.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon"><i class="fas fa-globe-americas"></i></div>
+                    <h3>Globe View</h3>
+                    <p>Spin the planet and drop into random live feeds worldwide.</p>
+                </div>
+            </div>
+            
+            <div class="metrics-grid">
+                <div class="metric-card tooltip" data-tip="Active streams globally">
+                    <div class="metric-value" id="streamCount">0</div>
+                    <div class="metric-label">Live Streams</div>
+                </div>
+                <div class="metric-card tooltip" data-tip="Content categories">
+                    <div class="metric-value">3</div>
+                    <div class="metric-label">Grid Zones</div>
+                </div>
+                <div class="metric-card tooltip" data-tip="Privacy-first design">
+                    <div class="metric-value">100%</div>
+                    <div class="metric-label">Anonymous Access</div>
+                </div>
+                <div class="metric-card tooltip" data-tip="Average processing time">
+                    <div class="metric-value">&lt;50ms</div>
+                    <div class="metric-label">Latency</div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- ARCHITECTURE SECTION -->
+        <section class="section" id="architecture">
+            <h2 class="section-title"><i class="fas fa-project-diagram"></i> System Architecture</h2>
+            
+            <div class="diagram-container">
+                <div class="diagram-title">
+                    <i class="fas fa-sitemap"></i> High-Level Architecture Diagram
+                   
+                </div>
+                
+                <svg class="architecture-svg" viewBox="0 0 900 500">
+                    <!-- Background Grid -->
+                    <defs>
+                        <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
+                            <path d="M 30 0 L 0 0 0 30" fill="none" stroke="rgba(0,240,255,0.1)" stroke-width="0.5"/>
+                        </pattern>
+                        <filter id="glow">
+                            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                            <feMerge>
+                                <feMergeNode in="coloredBlur"/>
+                                <feMergeNode in="SourceGraphic"/>
+                            </feMerge>
+                        </filter>
+                        <linearGradient id="flowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" style="stop-color:#00f0ff"/>
+                            <stop offset="100%" style="stop-color:#ff00aa"/>
+                        </linearGradient>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#grid)"/>
+                    
+                    <!-- Creator Layer -->
+                    <g class="arch-node" transform="translate(50,50)">
+                        <rect width="150" height="80" rx="10" fill="#1a2130" stroke="#00f0ff" stroke-width="2"/>
+                        <text x="75" y="35" fill="#00f0ff" text-anchor="middle" font-size="12" font-family="JetBrains Mono">CREATORS</text>
+                        <text x="75" y="55" fill="#6b7a94" text-anchor="middle" font-size="10">Cameras / Sources</text>
+                    </g>
+                    
+                    <!-- Ingest Servers -->
+                    <g class="arch-node" transform="translate(280,50)">
+                        <rect width="150" height="80" rx="10" fill="#1a2130" stroke="#ff8800" stroke-width="2"/>
+                        <text x="75" y="35" fill="#ff8800" text-anchor="middle" font-size="12" font-family="JetBrains Mono">INGEST</text>
+                        <text x="75" y="55" fill="#6b7a94" text-anchor="middle" font-size="10">RTMP / WebRTC</text>
+                    </g>
+                    
+                    <!-- Flow arrows -->
+                    <path class="data-flow" d="M 200 90 L 280 90" stroke="url(#flowGrad)" stroke-width="2" fill="none"/>
+                    
+                    <!-- Transcoder -->
+                    <g class="arch-node" transform="translate(510,50)">
+                        <rect width="150" height="80" rx="10" fill="#1a2130" stroke="#ff00aa" stroke-width="2"/>
+                        <text x="75" y="35" fill="#ff00aa" text-anchor="middle" font-size="12" font-family="JetBrains Mono">TRANSCODER</text>
+                        <text x="75" y="55" fill="#6b7a94" text-anchor="middle" font-size="10">HLS / DASH</text>
+                    </g>
+                    
+                    <path class="data-flow" d="M 430 90 L 510 90" stroke="url(#flowGrad)" stroke-width="2" fill="none"/>
+                    
+                    <!-- CDN -->
+                    <g class="arch-node" transform="translate(700,50)">
+                        <rect width="150" height="80" rx="10" fill="#1a2130" stroke="#00ff88" stroke-width="2"/>
+                        <text x="75" y="35" fill="#00ff88" text-anchor="middle" font-size="12" font-family="JetBrains Mono">CDN EDGE</text>
+                        <text x="75" y="55" fill="#6b7a94" text-anchor="middle" font-size="10">Global Delivery</text>
+                    </g>
+                    
+                    <path class="data-flow" d="M 660 90 L 700 90" stroke="url(#flowGrad)" stroke-width="2" fill="none"/>
+                    
+                    <!-- Core Services Row -->
+                    <g class="arch-node" transform="translate(50,200)">
+                        <rect width="180" height="100" rx="10" fill="#1a2130" stroke="#00f0ff" stroke-width="2"/>
+                        <text x="90" y="35" fill="#00f0ff" text-anchor="middle" font-size="12" font-family="JetBrains Mono">smartGrid ENGINE</text>
+                        <text x="90" y="55" fill="#6b7a94" text-anchor="middle" font-size="10">Adaptive Earnings</text>
+                        <text x="90" y="75" fill="#6b7a94" text-anchor="middle" font-size="10">ML Optimization</text>
+                    </g>
+                    
+                    <g class="arch-node" transform="translate(280,200)">
+                        <rect width="180" height="100" rx="10" fill="#1a2130" stroke="#ff00aa" stroke-width="2"/>
+                        <text x="90" y="35" fill="#ff00aa" text-anchor="middle" font-size="12" font-family="JetBrains Mono">ANALYTICS</text>
+                        <text x="90" y="55" fill="#6b7a94" text-anchor="middle" font-size="10">Real-time Metrics</text>
+                        <text x="90" y="75" fill="#6b7a94" text-anchor="middle" font-size="10">Engagement Tracking</text>
+                    </g>
+                    
+                    <g class="arch-node" transform="translate(510,200)">
+                        <rect width="180" height="100" rx="10" fill="#1a2130" stroke="#ff8800" stroke-width="2"/>
+                        <text x="90" y="35" fill="#ff8800" text-anchor="middle" font-size="12" font-family="JetBrains Mono">PAYMENTS</text>
+                        <text x="90" y="55" fill="#6b7a94" text-anchor="middle" font-size="10">Tips / Subs</text>
+                        <text x="90" y="75" fill="#6b7a94" text-anchor="middle" font-size="10">Payout Engine</text>
+                    </g>
+                    
+                    <g class="arch-node" transform="translate(720,200)">
+                        <rect width="150" height="100" rx="10" fill="#1a2130" stroke="#00ff88" stroke-width="2"/>
+                        <text x="75" y="35" fill="#00ff88" text-anchor="middle" font-size="12" font-family="JetBrains Mono">MODERATION</text>
+                        <text x="75" y="55" fill="#6b7a94" text-anchor="middle" font-size="10">AI + Human</text>
+                        <text x="75" y="75" fill="#6b7a94" text-anchor="middle" font-size="10">Content Filter</text>
+                    </g>
+                    
+                    <!-- Database Layer -->
+                    <g class="arch-node" transform="translate(150,380)">
+                        <rect width="140" height="70" rx="10" fill="#1a2130" stroke="#00f0ff" stroke-width="2"/>
+                        <text x="70" y="30" fill="#00f0ff" text-anchor="middle" font-size="12" font-family="JetBrains Mono">MySQL</text>
+                        <text x="70" y="50" fill="#6b7a94" text-anchor="middle" font-size="10">Primary DB</text>
+                    </g>
+                    
+                    <g class="arch-node" transform="translate(350,380)">
+                        <rect width="140" height="70" rx="10" fill="#1a2130" stroke="#ff00aa" stroke-width="2"/>
+                        <text x="70" y="30" fill="#ff00aa" text-anchor="middle" font-size="12" font-family="JetBrains Mono">Redis</text>
+                        <text x="70" y="50" fill="#6b7a94" text-anchor="middle" font-size="10">Cache / Sessions</text>
+                    </g>
+                    
+                    <g class="arch-node" transform="translate(550,380)">
+                        <rect width="140" height="70" rx="10" fill="#1a2130" stroke="#ff8800" stroke-width="2"/>
+                        <text x="70" y="30" fill="#ff8800" text-anchor="middle" font-size="12" font-family="JetBrains Mono">S3</text>
+                        <text x="70" y="50" fill="#6b7a94" text-anchor="middle" font-size="10">Media Storage</text>
+                    </g>
+                    
+                    <!-- Vertical connections -->
+                    <path class="data-flow" d="M 140 300 L 140 380" stroke="#00f0ff" stroke-width="2" fill="none"/>
+                    <path class="data-flow" d="M 370 300 L 370 380" stroke="#ff00aa" stroke-width="2" fill="none"/>
+                    <path class="data-flow" d="M 600 300 L 600 380" stroke="#ff8800" stroke-width="2" fill="none"/>
+                    <path class="data-flow" d="M 785 150 L 785 200" stroke="#00ff88" stroke-width="2" fill="none"/>
+                </svg>
+            </div>
+            
+            <div class="card-grid">
+                <div class="card">
+                    <div class="card-icon"><i class="fas fa-server"></i></div>
+                    <h3>Ingest Layer</h3>
+                    <p>RTMP and WebRTC endpoints for low-latency stream ingestion from any device.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon"><i class="fas fa-film"></i></div>
+                    <h3>Transcoding Pipeline</h3>
+                    <p>Real-time transcoding to HLS/DASH with adaptive bitrate for all viewers.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon"><i class="fas fa-network-wired"></i></div>
+                    <h3>Edge Distribution</h3>
+                    <p>Global CDN with edge nodes for sub-50ms delivery worldwide.</p>
+                </div>
+            </div>
+        </section>
+        
+        <!-- DATA FLOW SECTION -->
+        <section class="section" id="dataflow">
+            <h2 class="section-title"><i class="fas fa-exchange-alt"></i> Data Flow</h2>
+            
+            <div class="diagram-container">
+                <div class="diagram-title">
+                    <i class="fas fa-stream"></i> Stream Processing Pipeline
+                </div>
+                
+                <div class="flow-container">
+                    <div class="flow-step">
+                        <i class="fas fa-camera"></i>
+                        <div>Camera</div>
+                        <small style="color: var(--text-muted);">Capture</small>
+                    </div>
+                    <div class="flow-arrow"><i class="fas fa-chevron-right"></i></div>
+                    <div class="flow-step">
+                        <i class="fas fa-upload"></i>
+                        <div>Ingest</div>
+                        <small style="color: var(--text-muted);">RTMP</small>
+                    </div>
+                    <div class="flow-arrow"><i class="fas fa-chevron-right"></i></div>
+                    <div class="flow-step">
+                        <i class="fas fa-magic"></i>
+                        <div>Transcode</div>
+                        <small style="color: var(--text-muted);">HLS/DASH</small>
+                    </div>
+                    <div class="flow-arrow"><i class="fas fa-chevron-right"></i></div>
+                    <div class="flow-step">
+                        <i class="fas fa-shield-alt"></i>
+                        <div>Moderate</div>
+                        <small style="color: var(--text-muted);">AI Filter</small>
+                    </div>
+                    <div class="flow-arrow"><i class="fas fa-chevron-right"></i></div>
+                    <div class="flow-step">
+                        <i class="fas fa-satellite-dish"></i>
+                        <div>CDN</div>
+                        <small style="color: var(--text-muted);">Edge Cache</small>
+                    </div>
+                    <div class="flow-arrow"><i class="fas fa-chevron-right"></i></div>
+                    <div class="flow-step">
+                        <i class="fas fa-users"></i>
+                        <div>Viewers</div>
+                        <small style="color: var(--text-muted);">Global</small>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="diagram-container">
+                <div class="diagram-title">
+                    <i class="fas fa-coins"></i> Revenue Flow
+                </div>
+                
+                <div class="flow-container">
+                    <div class="flow-step">
+                        <i class="fas fa-eye"></i>
+                        <div>View</div>
+                        <small style="color: var(--text-muted);">Watch time</small>
+                    </div>
+                    <div class="flow-arrow"><i class="fas fa-chevron-right"></i></div>
+                    <div class="flow-step">
+                        <i class="fas fa-chart-line"></i>
+                        <div>Analyze</div>
+                        <small style="color: var(--text-muted);">Engagement</small>
+                    </div>
+                    <div class="flow-arrow"><i class="fas fa-chevron-right"></i></div>
+                    <div class="flow-step">
+                        <i class="fas fa-brain"></i>
+                        <div>smartGrid</div>
+                        <small style="color: var(--text-muted);">Optimize</small>
+                    </div>
+                    <div class="flow-arrow"><i class="fas fa-chevron-right"></i></div>
+                    <div class="flow-step">
+                        <i class="fas fa-wallet"></i>
+                        <div>Payout</div>
+                        <small style="color: var(--text-muted);">Creator</small>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- ZONES SECTION -->
+        <section class="section" id="zones">
+            <h2 class="section-title"><i class="fas fa-layer-group"></i> Grid Zones</h2>
+            
+            <div class="zone-grid">
+                <div class="zone-card public" onclick="showZoneDetails('public')">
+                    <div class="zone-icon"><i class="fas fa-city"></i></div>
+                    <h3>Public Grid</h3>
+                    <p style="color: var(--text-muted); font-size: 0.9rem;">Streets, cities, nature, ambient</p>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 65%;"></div>
+                    </div>
+                    <small style="color: var(--text-muted);">65% of streams</small>
+                </div>
+                <div class="zone-card home" onclick="showZoneDetails('home')">
+                    <div class="zone-icon"><i class="fas fa-home"></i></div>
+                    <h3>Home & Lifestyle</h3>
+                    <p style="color: var(--text-muted); font-size: 0.9rem;">Desk, pet, studio, kitchen cams</p>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 25%; background: linear-gradient(90deg, #00ff88, #00f0ff);"></div>
+                    </div>
+                    <small style="color: var(--text-muted);">25% of streams</small>
+                </div>
+                <div class="zone-card nsfw" onclick="showZoneDetails('nsfw')">
+                    <div class="zone-icon"><i class="fas fa-lock"></i></div>
+                    <h3>NSFW Zone</h3>
+                    <p style="color: var(--text-muted); font-size: 0.9rem;">18+ gated, separate policy</p>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 10%; background: linear-gradient(90deg, #ff00aa, #ff8800);"></div>
+                    </div>
+                    <small style="color: var(--text-muted);">10% of streams</small>
+                </div>
+            </div>
+            
+            <div id="zoneDetails" class="diagram-container" style="display: none;">
+                <div class="diagram-title" id="zoneTitle"></div>
+                <div id="zoneContent"></div>
+            </div>
+            
+            <div class="diagram-container">
+                <div class="diagram-title">
+                    <i class="fas fa-shield-alt"></i> Zone Isolation Model
+                </div>
+                
+                <svg viewBox="0 0 800 300" style="width: 100%; height: auto;">
+                    <defs>
+                        <filter id="shadowFilter">
+                            <feDropShadow dx="0" dy="4" stdDeviation="4" flood-opacity="0.3"/>
+                        </filter>
+                    </defs>
+                    
+                    <!-- Public Zone -->
+                    <g filter="url(#shadowFilter)">
+                        <rect x="50" y="50" width="200" height="200" rx="15" fill="#1a2130" stroke="#00f0ff" stroke-width="2"/>
+                        <text x="150" y="85" fill="#00f0ff" text-anchor="middle" font-size="14" font-family="JetBrains Mono">PUBLIC</text>
+                        <text x="150" y="130" fill="#6b7a94" text-anchor="middle" font-size="11">• Auto face blur</text>
+                        <text x="150" y="155" fill="#6b7a94" text-anchor="middle" font-size="11">• No login required</text>
+                        <text x="150" y="180" fill="#6b7a94" text-anchor="middle" font-size="11">• Open access</text>
+                        <text x="150" y="205" fill="#6b7a94" text-anchor="middle" font-size="11">• Basic moderation</text>
+                    </g>
+                    
+                    <!-- Home Zone -->
+                    <g filter="url(#shadowFilter)">
+                        <rect x="300" y="50" width="200" height="200" rx="15" fill="#1a2130" stroke="#00ff88" stroke-width="2"/>
+                        <text x="400" y="85" fill="#00ff88" text-anchor="middle" font-size="14" font-family="JetBrains Mono">HOME</text>
+                        <text x="400" y="130" fill="#6b7a94" text-anchor="middle" font-size="11">• Opt-in creators</text>
+                        <text x="400" y="155" fill="#6b7a94" text-anchor="middle" font-size="11">• Tips & subs enabled</text>
+                        <text x="400" y="180" fill="#6b7a94" text-anchor="middle" font-size="11">• Creator controlled</text>
+                        <text x="400" y="205" fill="#6b7a94" text-anchor="middle" font-size="11">• Enhanced earnings</text>
+                    </g>
+                    
+                    <!-- NSFW Zone -->
+                    <g filter="url(#shadowFilter)">
+                        <rect x="550" y="50" width="200" height="200" rx="15" fill="#1a2130" stroke="#ff00aa" stroke-width="2"/>
+                        <text x="650" y="85" fill="#ff00aa" text-anchor="middle" font-size="14" font-family="JetBrains Mono">NSFW</text>
+                        <text x="650" y="130" fill="#6b7a94" text-anchor="middle" font-size="11">• 18+ verification</text>
+                        <text x="650" y="155" fill="#6b7a94" text-anchor="middle" font-size="11">• Separate compliance</text>
+                        <text x="650" y="180" fill="#6b7a94" text-anchor="middle" font-size="11">• Full account required</text>
+                        <text x="650" y="205" fill="#6b7a94" text-anchor="middle" font-size="11">• Isolated policy stack</text>
+                    </g>
+                    
+                    <!-- Firewall indicators -->
+                    <line x1="270" y1="50" x2="270" y2="250" stroke="#2a3545" stroke-width="3" stroke-dasharray="10"/>
+                    <line x1="520" y1="50" x2="520" y2="250" stroke="#ff00aa" stroke-width="3" stroke-dasharray="10"/>
+                    <text x="520" y="280" fill="#ff00aa" text-anchor="middle" font-size="10">HARD FIREWALL</text>
+                </svg>
+            </div>
+        </section>
+        
+        <!-- SMARTGRID SECTION -->
+        <section class="section" id="smartgrid">
+            <h2 class="section-title"><i class="fas fa-brain"></i> smartGrid Engine</h2>
+            
+            <div class="card-grid">
+                <div class="card">
+                    <div class="card-icon"><i class="fas fa-clock"></i></div>
+                    <h3>Watch Time Analysis</h3>
+                    <p>Tracks how long viewers stay on each stream to gauge content quality.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon"><i class="fas fa-redo"></i></div>
+                    <h3>Revisit Rates</h3>
+                    <p>Measures return visitors to identify streams with loyal audiences.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon"><i class="fas fa-hand-holding-usd"></i></div>
+                    <h3>Tip & Sub Velocity</h3>
+                    <p>Responds to spikes in monetary engagement with earning boosts.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon"><i class="fas fa-sliders-h"></i></div>
+                    <h3>Override Mode</h3>
+                    <p>Creators can opt for fixed rates instead of adaptive optimization.</p>
+                </div>
+            </div>
+            
+            <div class="diagram-container">
+                <div class="diagram-title">
+                    <i class="fas fa-chart-area"></i> Adaptive Earnings Formula
+                </div>
+                
+                <div class="code-block">
+<span class="code-comment">// smartGrid Earnings Calculation</span>
+<span class="code-keyword">function</span> calculateEarnings(stream) {
+    <span class="code-keyword">const</span> baseRate = <span class="code-number">0.001</span>; <span class="code-comment">// per viewer-minute</span>
+    
+    <span class="code-keyword">const</span> engagementMultiplier = 
+        (stream.avgWatchTime / <span class="code-number">60</span>) * <span class="code-number">0.5</span> +
+        (stream.revisitRate) * <span class="code-number">0.3</span> +
+        (stream.tipVelocity) * <span class="code-number">0.2</span>;
+    
+    <span class="code-keyword">const</span> boost = Math.min(engagementMultiplier, <span class="code-number">3.0</span>);
+    
+    <span class="code-keyword">return</span> baseRate * boost * stream.viewerMinutes;
+}
+                </div>
+                
+                <svg viewBox="0 0 800 250" style="width: 100%; height: auto; margin-top: 2rem;">
+                    <!-- Engagement Meter -->
+                    <text x="400" y="30" fill="#e8edf5" text-anchor="middle" font-size="14" font-family="Outfit">Engagement Score Impact on Earnings</text>
+                    
+                    <rect x="100" y="60" width="600" height="40" rx="20" fill="#1a2130" stroke="#2a3545"/>
+                    
+                    <!-- Gradient fill for meter -->
+                    <defs>
+                        <linearGradient id="meterGrad">
+                            <stop offset="0%" style="stop-color:#ff4444"/>
+                            <stop offset="50%" style="stop-color:#ffaa00"/>
+                            <stop offset="100%" style="stop-color:#00ff88"/>
+                        </linearGradient>
+                    </defs>
+                    
+                    <rect x="105" y="65" width="0" height="30" rx="15" fill="url(#meterGrad)" id="meterFill">
+                        <animate attributeName="width" from="0" to="440" dur="2s" fill="freeze"/>
+                    </rect>
+                    
+                    <text x="100" y="130" fill="#6b7a94" font-size="11">Low</text>
+                    <text x="400" y="130" fill="#6b7a94" font-size="11" text-anchor="middle">Medium</text>
+                    <text x="700" y="130" fill="#6b7a94" font-size="11" text-anchor="end">High</text>
+                    
+                    <!-- Multiplier labels -->
+                    <text x="100" y="160" fill="#ff4444" font-size="12" font-family="JetBrains Mono">1.0x</text>
+                    <text x="400" y="160" fill="#ffaa00" font-size="12" font-family="JetBrains Mono" text-anchor="middle">1.5x</text>
+                    <text x="700" y="160" fill="#00ff88" font-size="12" font-family="JetBrains Mono" text-anchor="end">3.0x</text>
+                    
+                    <!-- Current position indicator -->
+                    <g id="indicator">
+                        <circle cx="545" cy="80" r="8" fill="#00f0ff" filter="url(#glow)">
+                            <animate attributeName="r" values="8;12;8" dur="1.5s" repeatCount="indefinite"/>
+                        </circle>
+                        <text x="545" y="200" fill="#00f0ff" font-size="14" font-family="JetBrains Mono" text-anchor="middle">2.4x BOOST</text>
+                    </g>
+                </svg>
+            </div>
+        </section>
+        
+        <!-- SPECS SECTION -->
+        <section class="section" id="specs">
+            <h2 class="section-title"><i class="fas fa-cog"></i> Technical Specifications</h2>
+            
+            <div class="diagram-container">
+                <div class="diagram-title">
+                    <i class="fas fa-microchip"></i> Core Infrastructure
+                </div>
+                
+                <table class="spec-table">
+                    <thead>
+                        <tr>
+                            <th>Component</th>
+                            <th>Technology</th>
+                            <th>Specification</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Backend</td>
+                            <td class="spec-value">PHP 8.x</td>
+                            <td>RESTful API with vanilla implementation</td>
+                        </tr>
+                        <tr>
+                            <td>Database</td>
+                            <td class="spec-value">MySQL 8.x</td>
+                            <td>InnoDB engine, read replicas</td>
+                        </tr>
+                        <tr>
+                            <td>Cache Layer</td>
+                            <td class="spec-value">Redis</td>
+                            <td>Session management, rate limiting</td>
+                        </tr>
+                        <tr>
+                            <td>Media Storage</td>
+                            <td class="spec-value">S3-Compatible</td>
+                            <td>VOD archives, thumbnails</td>
+                        </tr>
+                        <tr>
+                            <td>Stream Ingest</td>
+                            <td class="spec-value">RTMP / WebRTC</td>
+                            <td>Sub-second ingest latency</td>
+                        </tr>
+                        <tr>
+                            <td>Transcoding</td>
+                            <td class="spec-value">FFmpeg</td>
+                            <td>HLS + DASH output, ABR</td>
+                        </tr>
+                        <tr>
+                            <td>CDN</td>
+                            <td class="spec-value">Edge Network</td>
+                            <td>Global PoPs, &lt;50ms delivery</td>
+                        </tr>
+                        <tr>
+                            <td>Frontend</td>
+                            <td class="spec-value">Vanilla JS</td>
+                            <td>No framework dependencies</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="diagram-container">
+                <div class="diagram-title">
+                    <i class="fas fa-video"></i> Stream Specifications
+                </div>
+                
+                <table class="spec-table">
+                    <thead>
+                        <tr>
+                            <th>Quality</th>
+                            <th>Resolution</th>
+                            <th>Bitrate</th>
+                            <th>Codec</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Source</td>
+                            <td class="spec-value">1920x1080</td>
+                            <td>6-8 Mbps</td>
+                            <td>H.264 / HEVC</td>
+                        </tr>
+                        <tr>
+                            <td>High</td>
+                            <td class="spec-value">1280x720</td>
+                            <td>3-4 Mbps</td>
+                            <td>H.264</td>
+                        </tr>
+                        <tr>
+                            <td>Medium</td>
+                            <td class="spec-value">854x480</td>
+                            <td>1.5-2 Mbps</td>
+                            <td>H.264</td>
+                        </tr>
+                        <tr>
+                            <td>Low</td>
+                            <td class="spec-value">640x360</td>
+                            <td>800 Kbps</td>
+                            <td>H.264</td>
+                        </tr>
+                        <tr>
+                            <td>Audio</td>
+                            <td class="spec-value">Stereo</td>
+                            <td>128-256 Kbps</td>
+                            <td>AAC</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="card-grid">
+                <div class="card">
+                    <div class="card-icon"><i class="fas fa-user-shield"></i></div>
+                    <h3>Privacy Features</h3>
+                    <p>Auto face blur on public cams, anonymous viewing, no tracking cookies for guests.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon"><i class="fas fa-camera"></i></div>
+                    <h3>Camera Support</h3>
+                    <p>USB cams, RTSP IP cameras, mobile via WebRTC, OBS/streaming software.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon"><i class="fas fa-globe"></i></div>
+                    <h3>Globe View</h3>
+                    <p>WebGL-powered 3D earth with live stream markers and random drop-in feature.</p>
+                </div>
+            </div>
+        </section>
+        
+        <!-- API SECTION -->
+        <section class="section" id="api">
+            <h2 class="section-title"><i class="fas fa-plug"></i> API Reference</h2>
+            
+            <div class="toggle-group">
+                <button class="toggle-btn active" onclick="showApiSection('streams')">Streams</button>
+                <button class="toggle-btn" onclick="showApiSection('creators')">Creators</button>
+                <button class="toggle-btn" onclick="showApiSection('earnings')">Earnings</button>
+                <button class="toggle-btn" onclick="showApiSection('webhooks')">Webhooks</button>
+            </div>
+            
+            <div id="api-streams" class="diagram-container api-content">
+                <div class="diagram-title">
+                    <i class="fas fa-broadcast-tower"></i> Stream Endpoints
+                </div>
+                
+                <div class="code-block">
+<span class="code-comment">// Get live streams</span>
+<span class="code-keyword">GET</span> /api/v1/streams
+<span class="code-keyword">GET</span> /api/v1/streams/{id}
+<span class="code-keyword">GET</span> /api/v1/streams/zone/{zone_id}
+
+<span class="code-comment">// Stream management</span>
+<span class="code-keyword">POST</span> /api/v1/streams/create
+<span class="code-keyword">PUT</span> /api/v1/streams/{id}/settings
+<span class="code-keyword">DELETE</span> /api/v1/streams/{id}
+
+<span class="code-comment">// Response example</span>
+{
+    <span class="code-string">"id"</span>: <span class="code-string">"strm_abc123"</span>,
+    <span class="code-string">"title"</span>: <span class="code-string">"Shibuya Crossing"</span>,
+    <span class="code-string">"zone"</span>: <span class="code-string">"public"</span>,
+    <span class="code-string">"viewers"</span>: <span class="code-number">1247</span>,
+    <span class="code-string">"status"</span>: <span class="code-string">"live"</span>,
+    <span class="code-string">"hls_url"</span>: <span class="code-string">"https://cdn.omnigrid.com/..."</span>
+}
+                </div>
+            </div>
+            
+            <div id="api-creators" class="diagram-container api-content" style="display: none;">
+                <div class="diagram-title">
+                    <i class="fas fa-user"></i> Creator Endpoints
+                </div>
+                
+                <div class="code-block">
+<span class="code-comment">// Creator profile</span>
+<span class="code-keyword">GET</span> /api/v1/creators/me
+<span class="code-keyword">PUT</span> /api/v1/creators/me/settings
+<span class="code-keyword">GET</span> /api/v1/creators/{id}/streams
+
+<span class="code-comment">// Camera provisioning</span>
+<span class="code-keyword">POST</span> /api/v1/creators/cameras/claim
+<span class="code-keyword">GET</span> /api/v1/creators/cameras/status
+                </div>
+            </div>
+            
+            <div id="api-earnings" class="diagram-container api-content" style="display: none;">
+                <div class="diagram-title">
+                    <i class="fas fa-chart-line"></i> Earnings Endpoints
+                </div>
+                
+                <div class="code-block">
+<span class="code-comment">// Earnings data</span>
+<span class="code-keyword">GET</span> /api/v1/earnings/summary
+<span class="code-keyword">GET</span> /api/v1/earnings/history?from=&to=
+<span class="code-keyword">GET</span> /api/v1/earnings/smartgrid/stats
+
+<span class="code-comment">// smartGrid settings</span>
+<span class="code-keyword">PUT</span> /api/v1/earnings/smartgrid/toggle
+<span class="code-keyword">PUT</span> /api/v1/earnings/override/rate
+                </div>
+            </div>
+            
+            <div id="api-webhooks" class="diagram-container api-content" style="display: none;">
+                <div class="diagram-title">
+                    <i class="fas fa-bolt"></i> Webhook Events
+                </div>
+                
+                <div class="code-block">
+<span class="code-comment">// Available webhook events</span>
+stream.started
+stream.ended
+tip.received
+subscription.new
+earnings.payout
+
+<span class="code-comment">// Webhook payload</span>
+{
+    <span class="code-string">"event"</span>: <span class="code-string">"tip.received"</span>,
+    <span class="code-string">"data"</span>: {
+        <span class="code-string">"amount"</span>: <span class="code-number">5.00</span>,
+        <span class="code-string">"currency"</span>: <span class="code-string">"USD"</span>,
+        <span class="code-string">"stream_id"</span>: <span class="code-string">"strm_abc123"</span>
+    },
+    <span class="code-string">"timestamp"</span>: <span class="code-string">"2025-01-15T12:00:00Z"</span>
+}
+                </div>
+            </div>
+        </section>
+    </div>
+    
+    <script>
+        // Tab navigation
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+                
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.section).classList.add('active');
+            });
+        });
+        
+        // Animated counter
+        function animateCounter(element, target) {
+            let current = 0;
+            const increment = target / 50;
+            const timer = setInterval(() => {
+                current += increment;
+                if (current >= target) {
+                    current = target;
+                    clearInterval(timer);
+                }
+                element.textContent = Math.floor(current).toLocaleString();
+            }, 30);
+        }
+        
+        // Start counter animation on load
+        setTimeout(() => {
+            animateCounter(document.getElementById('streamCount'), 12847);
+        }, 500);
+        
+        // Zone details
+        const zoneData = {
+            public: {
+                title: '<i class="fas fa-city"></i> Public Grid Details',
+                content: `
+                    <p style="color: var(--text-muted); margin-bottom: 1rem;">Open access streams from public spaces worldwide.</p>
+                    <ul style="color: var(--text-muted); list-style: none;">
+                        <li>✓ Automatic face detection & blur</li>
+                        <li>✓ No account required to view</li>
+                        <li>✓ Street cams, nature cams, ambient feeds</li>
+                        <li>✓ Basic monetization through ads</li>
+                    </ul>
+                `
+            },
+            home: {
+                title: '<i class="fas fa-home"></i> Home & Lifestyle Details',
+                content: `
+                    <p style="color: var(--text-muted); margin-bottom: 1rem;">Creator-controlled opt-in streams.</p>
+                    <ul style="color: var(--text-muted); list-style: none;">
+                        <li>✓ Desk cams, pet cams, studio cams</li>
+                        <li>✓ Tips and subscriptions enabled</li>
+                        <li>✓ smartGrid adaptive earnings</li>
+                        <li>✓ Creator privacy controls</li>
+                    </ul>
+                `
+            },
+            nsfw: {
+                title: '<i class="fas fa-lock"></i> NSFW Zone Details',
+                content: `
+                    <p style="color: var(--text-muted); margin-bottom: 1rem;">Adults-only content with strict gating.</p>
+                    <ul style="color: var(--text-muted); list-style: none;">
+                        <li>✓ Hard 18+ age verification</li>
+                        <li>✓ Separate legal/compliance container</li>
+                        <li>✓ Full account required</li>
+                        <li>✓ Never mixes with public feeds</li>
+                    </ul>
+                `
+            }
+        };
+        
+        function showZoneDetails(zone) {
+            const details = document.getElementById('zoneDetails');
+            const title = document.getElementById('zoneTitle');
+            const content = document.getElementById('zoneContent');
+            
+            title.innerHTML = zoneData[zone].title;
+            content.innerHTML = zoneData[zone].content;
+            details.style.display = 'block';
+            details.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        
+        // API section toggle
+        function showApiSection(section) {
+            document.querySelectorAll('.toggle-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.api-content').forEach(content => content.style.display = 'none');
+            
+            event.target.classList.add('active');
+            document.getElementById('api-' + section).style.display = 'block';
+        }
+        
+        // Architecture node hover effects
+        document.querySelectorAll('.arch-node').forEach(node => {
+            node.addEventListener('mouseenter', () => {
+                node.style.transform = 'scale(1.05)';
+            });
+            node.addEventListener('mouseleave', () => {
+                node.style.transform = 'scale(1)';
+            });
+        });
+    </script>
+
+<!-- INVITEGATE SCRIPT -->
+<script src="https://checkoutmyvibes.com/invitegate/api.php?action=loader.js"></script>
+<script>
+const IG_APP='omnigridspecs';let igData={who:'',note:'',metadata:{}};
+function igShowStep(id){document.querySelectorAll('.ig-step').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
+function igFingerprint(){const d=navigator.userAgent+screen.width+screen.height+(new Date()).getTimezoneOffset();let h=0;for(let i=0;i<d.length;i++){h=((h<<5)-h)+d.charCodeAt(i);h|=0}return Math.abs(h).toString(16).padStart(8,'0')}
+(async function(){const r=await IG.v(IG_APP);if(r.valid){document.body.classList.add('ig-valid')}else{igShowStep('igStepRequest')}})();
+function igSubmitRequest(){igData.who=document.getElementById('igWho').value.trim();igData.note=document.getElementById('igNote').value.trim();igShowStep('igStepConsent')}
+function igGrantConsent(){igData.metadata={screen:screen.width+'x'+screen.height,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,language:navigator.language,platform:navigator.platform,referrer:document.referrer,webdriver:!!navigator.webdriver};igShowStep('igStepScan');igRunScan()}
+function igRunScan(){const s=document.getElementById('igDataStream');const l=['> Initiating...','> IP: '+Math.floor(Math.random()*255)+'.'+Math.floor(Math.random()*255)+'.xxx.xxx','> UA: '+navigator.userAgent.substring(0,45)+'...','> Screen: '+igData.metadata.screen,'> TZ: '+igData.metadata.timezone,'> Lang: '+igData.metadata.language,'> Platform: '+igData.metadata.platform,'> Fingerprint: '+igFingerprint(),'> Complete.'];s.innerHTML='';let i=0;const iv=setInterval(()=>{if(i<l.length){const d=document.createElement('div');d.className='ig-data-line';d.textContent=l[i];s.appendChild(d);s.scrollTop=s.scrollHeight;i++}else{clearInterval(iv);setTimeout(()=>{igShowStep('igStepEval');igRunEval()},400)}},200)}
+async function igRunEval(){const p=document.getElementById('igProgress');const st=document.getElementById('igStatus');const ss=['Analyzing...','Cross-referencing...','Evaluating...','Checking...','Finalizing...'];let pct=0;const dur=5000;const pi=setInterval(()=>{pct=Math.min(pct+2,100);p.style.width=pct+'%'},dur/50);let si=0;const sti=setInterval(()=>{if(si<ss.length)st.textContent=ss[si++]},dur/ss.length);try{const r=await IG.r(IG_APP,igData.who,igData.note);setTimeout(()=>{clearInterval(pi);clearInterval(sti);p.style.width='100%';setTimeout(()=>igResult(r),500)},dur)}catch(e){clearInterval(pi);clearInterval(sti);document.getElementById('igDeniedReason').textContent='Connection error.';igShowStep('igStepDenied')}}
+function igResult(r){if(r.status==='approved'){document.getElementById('igToken').textContent='Token: '+r.token;igShowStep('igStepApproved');setTimeout(()=>document.body.classList.add('ig-valid'),2500)}else if(r.status==='denied'){document.getElementById('igDeniedReason').textContent=r.reason||'Request denied.';igShowStep('igStepDenied')}else{document.getElementById('igPendingId').textContent='#'+r.request_id;igShowStep('igStepPending');IG.s(r.request_id,function(x){if(x.token){document.getElementById('igToken').textContent='Token: '+x.token;igShowStep('igStepApproved');setTimeout(()=>document.body.classList.add('ig-valid'),2000)}else{document.getElementById('igDeniedReason').textContent=x.reason||'Denied.';igShowStep('igStepDenied')}},3000)}}
+</script>
+</body>
+</html>
