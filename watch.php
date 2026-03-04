@@ -1,39 +1,42 @@
 <?php
+session_start();
 require_once 'includes/db.php';
 
 $filter = $_GET['filter'] ?? 'all';
 $sort = $_GET['sort'] ?? 'popular';
 
-$where = "s.is_active = 1";
-if ($filter === 'live') $where .= " AND s.is_live = 1";
-elseif (in_array($filter, ['public', 'lifestyle', 'nsfw'])) $where .= " AND s.type = " . $pdo->quote($filter);
+// Build query with resilient column references
+try {
+    $where = "1=1";
+    try {
+        $pdo->query("SELECT is_active FROM streams LIMIT 1");
+        $where = "s.is_active = 1";
+    } catch (Exception $e) {}
 
-$orderBy = match($sort) {
-    'newest' => 's.created_at DESC',
-    'subs' => 'm.subs_count DESC',
-    default => 's.is_live DESC, m.views DESC'
-};
+    if ($filter === 'live') $where .= " AND s.is_live = 1";
 
-$stmt = $pdo->query("
-    SELECT s.*, u.display_name,
-           COALESCE(m.views, 0) as views,
-           COALESCE(m.subs_count, 0) as subs_count,
-           COALESCE(m.tips_cents, 0) as tips_cents,
-           COALESCE(m.peak_viewers, 0) as peak_viewers
-    FROM streams s
-    JOIN users u ON s.user_id = u.id
-    LEFT JOIN stream_metrics m ON s.id = m.stream_id
-    WHERE $where
-    ORDER BY $orderBy
-    LIMIT 50
-");
-$streams = $stmt->fetchAll();
+    $orderBy = match($sort) {
+        'newest' => 's.created_at DESC',
+        default => 's.is_live DESC, s.created_at DESC'
+    };
 
-$counts = [];
-$counts['all'] = $pdo->query("SELECT COUNT(*) FROM streams WHERE is_active = 1")->fetchColumn();
-$counts['live'] = $pdo->query("SELECT COUNT(*) FROM streams WHERE is_active = 1 AND is_live = 1")->fetchColumn();
-$counts['public'] = $pdo->query("SELECT COUNT(*) FROM streams WHERE is_active = 1 AND type = 'public'")->fetchColumn();
-$counts['lifestyle'] = $pdo->query("SELECT COUNT(*) FROM streams WHERE is_active = 1 AND type = 'lifestyle'")->fetchColumn();
+    $streams = $pdo->query("
+        SELECT s.*, u.display_name, u.email
+        FROM streams s
+        JOIN users u ON s.user_id = u.id
+        WHERE $where
+        ORDER BY $orderBy
+        LIMIT 50
+    ")->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    $streams = [];
+}
+
+$liveCount = 0;
+$totalCount = count($streams);
+foreach ($streams as $s) {
+    if (!empty($s['is_live'])) $liveCount++;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -127,12 +130,8 @@ a { text-decoration: none; color: inherit; }
 .container { max-width: 1320px; margin: 0 auto; padding: 0 2rem; }
 
 /* Page Header */
-.page-top {
-    padding: 2.5rem 0 0;
-}
-.page-top h1 {
-    font-size: 1.75rem; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 0.35rem;
-}
+.page-top { padding: 2.5rem 0 0; }
+.page-top h1 { font-size: 1.75rem; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 0.35rem; }
 .page-top p { color: var(--muted); font-size: 0.9rem; }
 
 /* Filter Bar */
@@ -213,32 +212,14 @@ a { text-decoration: none; color: inherit; }
     display: flex; align-items: center; gap: 0.3rem;
 }
 .badge-live::before { content: ''; width: 6px; height: 6px; background: #fff; border-radius: 50%; }
-.badge-public { background: var(--success); }
-.badge-lifestyle { background: var(--warning); }
-.badge-nsfw { background: #9333ea; }
 @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.6} }
-
-.viewers-badge {
-    position: absolute; top: 0.75rem; right: 0.75rem;
-    background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(8px);
-    color: #fff; padding: 0.2rem 0.6rem; border-radius: var(--radius-pill);
-    font-size: 0.75rem; font-weight: 500;
-    display: flex; align-items: center; gap: 0.3rem; z-index: 2;
-}
 
 .card-body { padding: 1.1rem 1.2rem; }
 .card-title {
     font-weight: 600; font-size: 0.95rem; margin-bottom: 0.35rem;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.card-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
-.card-tag { color: var(--primary-light); font-size: 0.8rem; font-weight: 500; }
 .card-creator { color: var(--muted); font-size: 0.8rem; display: flex; align-items: center; gap: 0.3rem; }
-.card-stats {
-    display: flex; gap: 1.25rem; font-size: 0.8rem; color: var(--muted);
-    padding-top: 0.6rem; border-top: 1px solid var(--border);
-}
-.card-stats span { display: flex; align-items: center; gap: 0.3rem; }
 
 /* Empty */
 .empty {
@@ -278,9 +259,13 @@ a { text-decoration: none; color: inherit; }
     <nav class="nav">
         <a href="globe.php"><i class="fa-solid fa-earth-americas"></i> Globe</a>
         <a href="watch.php" style="color: var(--primary-light)"><i class="fa-solid fa-play"></i> Browse</a>
-        <a href="calculator.php"><i class="fa-solid fa-calculator"></i> Earnings</a>
-        <a href="login.php"><i class="fa-solid fa-arrow-right-to-bracket"></i> Login</a>
-        <a href="contribute/" class="btn-primary"><i class="fa-solid fa-broadcast-tower"></i> Go Live</a>
+        <a href="calculator.html"><i class="fa-solid fa-calculator"></i> Earnings</a>
+        <?php if (!empty($_SESSION['user_id'])): ?>
+            <a href="contribute/" class="btn-primary"><i class="fa-solid fa-broadcast-tower"></i> Studio</a>
+        <?php else: ?>
+            <a href="login.php"><i class="fa-solid fa-arrow-right-to-bracket"></i> Login</a>
+            <a href="contribute/" class="btn-primary"><i class="fa-solid fa-broadcast-tower"></i> Go Live</a>
+        <?php endif; ?>
     </nav>
 </header>
 
@@ -292,23 +277,16 @@ a { text-decoration: none; color: inherit; }
 
     <div class="filter-bar">
         <div class="filters">
-            <a href="?filter=all&sort=<?= $sort ?>" class="filter-pill <?= $filter === 'all' ? 'active' : '' ?>">
-                All <span class="count"><?= $counts['all'] ?></span>
+            <a href="?filter=all&sort=<?= htmlspecialchars($sort) ?>" class="filter-pill <?= $filter === 'all' ? 'active' : '' ?>">
+                All <span class="count"><?= $totalCount ?></span>
             </a>
-            <a href="?filter=live&sort=<?= $sort ?>" class="filter-pill <?= $filter === 'live' ? 'active' : '' ?>">
-                <i class="fa-solid fa-circle" style="font-size: 0.5rem; color: var(--danger)"></i> Live <span class="count"><?= $counts['live'] ?></span>
-            </a>
-            <a href="?filter=public&sort=<?= $sort ?>" class="filter-pill <?= $filter === 'public' ? 'active' : '' ?>">
-                Public <span class="count"><?= $counts['public'] ?></span>
-            </a>
-            <a href="?filter=lifestyle&sort=<?= $sort ?>" class="filter-pill <?= $filter === 'lifestyle' ? 'active' : '' ?>">
-                Lifestyle <span class="count"><?= $counts['lifestyle'] ?></span>
+            <a href="?filter=live&sort=<?= htmlspecialchars($sort) ?>" class="filter-pill <?= $filter === 'live' ? 'active' : '' ?>">
+                <i class="fa-solid fa-circle" style="font-size: 0.5rem; color: var(--danger)"></i> Live <span class="count"><?= $liveCount ?></span>
             </a>
         </div>
-        <select class="sort-select" onchange="location.href='?filter=<?= $filter ?>&sort='+this.value">
+        <select class="sort-select" onchange="location.href='?filter=<?= htmlspecialchars($filter) ?>&sort='+this.value">
             <option value="popular" <?= $sort === 'popular' ? 'selected' : '' ?>>Most Popular</option>
             <option value="newest" <?= $sort === 'newest' ? 'selected' : '' ?>>Newest</option>
-            <option value="subs" <?= $sort === 'subs' ? 'selected' : '' ?>>Most Subscribers</option>
         </select>
     </div>
 
@@ -321,33 +299,20 @@ a { text-decoration: none; color: inherit; }
     <?php else: ?>
     <div class="stream-grid">
         <?php foreach ($streams as $s): ?>
-        <a href="live.php?id=<?= $s['id'] ?>" class="card <?= $s['is_live'] ? 'live' : '' ?>">
+        <a href="live.php?id=<?= $s['id'] ?>" class="card <?= !empty($s['is_live']) ? 'live' : '' ?>">
             <div class="thumb">
-                <?php if ($s['thumb_url']): ?>
+                <?php if (!empty($s['thumb_url'])): ?>
                     <img src="<?= htmlspecialchars($s['thumb_url']) ?>" alt="<?= htmlspecialchars($s['title']) ?>" loading="lazy">
                 <?php else: ?>
                     <div class="no-img"><i class="fa-solid fa-video"></i></div>
                 <?php endif; ?>
-                <?php if ($s['is_live']): ?>
+                <?php if (!empty($s['is_live'])): ?>
                     <span class="badge badge-live">Live</span>
-                <?php else: ?>
-                    <span class="badge badge-<?= htmlspecialchars($s['type']) ?>"><?= htmlspecialchars($s['type']) ?></span>
                 <?php endif; ?>
-                <span class="viewers-badge"><i class="fa-solid fa-eye"></i> <?= number_format($s['views']) ?></span>
             </div>
             <div class="card-body">
                 <div class="card-title"><?= htmlspecialchars($s['title']) ?></div>
-                <div class="card-meta">
-                    <span class="card-tag"><?= htmlspecialchars($s['vibe_tag'] ?: $s['type']) ?></span>
-                    <span class="card-creator"><i class="fa-solid fa-user"></i> <?= htmlspecialchars($s['display_name'] ?: 'Anonymous') ?></span>
-                </div>
-                <div class="card-stats">
-                    <span><i class="fa-solid fa-users"></i> <?= $s['subs_count'] ?> subs</span>
-                    <span><i class="fa-solid fa-coins"></i> $<?= number_format($s['tips_cents'] / 100, 2) ?> tips</span>
-                    <?php if ($s['peak_viewers'] > 0): ?>
-                    <span><i class="fa-solid fa-chart-line"></i> <?= $s['peak_viewers'] ?> peak</span>
-                    <?php endif; ?>
-                </div>
+                <span class="card-creator"><i class="fa-solid fa-user"></i> <?= htmlspecialchars($s['display_name'] ?: explode('@', $s['email'])[0]) ?></span>
             </div>
         </a>
         <?php endforeach; ?>
@@ -358,5 +323,6 @@ a { text-decoration: none; color: inherit; }
 <footer class="footer">
     <div class="footer-text">&copy; <?= date('Y') ?> OmniGrid. All rights reserved.</div>
 </footer>
+
 </body>
 </html>

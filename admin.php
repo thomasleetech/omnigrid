@@ -3,13 +3,18 @@ session_start();
 require_once 'includes/db.php';
 require_once 'includes/SmartGrid.php';
 
-// Simple admin check (in production, use proper admin role)
-$isAdmin = !empty($_SESSION['user_id']);
+// Admin role check
+if (empty($_SESSION['user_id'])) { header('Location: login.php'); exit; }
+$adminStmt = $pdo->prepare("SELECT role FROM users WHERE id = ?");
+$adminStmt->execute([$_SESSION['user_id']]);
+$adminUser = $adminStmt->fetch();
+if (!$adminUser || ($adminUser['role'] ?? '') !== 'admin') { header('Location: ./'); exit; }
+$isAdmin = true;
 
 $smartGrid = new SmartGrid($pdo);
 
 // Handle form submissions
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isAdmin) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isAdmin && csrf_verify($_POST['csrf_token'] ?? '')) {
     if (isset($_POST['payout_multiplier'])) {
         $mult = max(0.1, min(5.0, floatval($_POST['payout_multiplier'])));
         $smartGrid->setPayoutMultiplier($mult);
@@ -20,9 +25,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isAdmin) {
 $platformStats = $smartGrid->getPlatformStats();
 $allStreams = $smartGrid->getAllStreamsWithEarnings();
 
-// Get current config
-$config = $pdo->query("SELECT config_key, config_value FROM site_config")->fetchAll(PDO::FETCH_KEY_PAIR);
-$payoutMultiplier = floatval($config['payout_multiplier'] ?? 1.0);
+// Get current config (single-row format)
+try {
+    $configRow = $pdo->query("SELECT * FROM site_config WHERE id = 1")->fetch(PDO::FETCH_ASSOC);
+    $payoutMultiplier = floatval($configRow['smartgrid_aggressiveness'] ?? 1.0);
+} catch (Exception $e) {
+    $payoutMultiplier = 1.0;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -288,6 +297,7 @@ $payoutMultiplier = floatval($config['payout_multiplier'] ?? 1.0);
                             <div class="multiplier-label">Global Payout Multiplier</div>
                         </div>
                         <form method="POST" class="multiplier-form">
+                            <?= csrf_field() ?>
                             <div class="form-group">
                                 <label>Adjust Payout Rate</label>
                                 <div class="range-row">

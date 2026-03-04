@@ -730,7 +730,7 @@ a { text-decoration: none; color: inherit; }
     <nav class="nav" id="nav">
         <a href="globe.php"><i class="fa-solid fa-earth-americas"></i> Globe</a>
         <a href="watch.php"><i class="fa-solid fa-play"></i> Browse</a>
-        <a href="calculator.php"><i class="fa-solid fa-calculator"></i> Earnings</a>
+        <a href="calculator.html"><i class="fa-solid fa-calculator"></i> Earnings</a>
         <a href="login.php"><i class="fa-solid fa-arrow-right-to-bracket"></i> Login</a>
         <a href="contribute/" class="btn"><i class="fa-solid fa-broadcast-tower"></i> Go Live</a>
     </nav>

@@ -8,10 +8,13 @@ if (!$stmt->fetch()) { header('Location: ../'); exit; }
 $stats = [
     'users' => $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn(),
     'streams' => $pdo->query("SELECT COUNT(*) FROM streams")->fetchColumn(),
-    'live' => $pdo->query("SELECT COUNT(*) FROM streams WHERE is_live = 1")->fetchColumn() ?: 0,
-    'views' => $pdo->query("SELECT COALESCE(SUM(views),0) FROM stream_metrics")->fetchColumn(),
-    'earnings' => $pdo->query("SELECT COALESCE(SUM(tips_cents),0) FROM stream_metrics")->fetchColumn()
+    'live' => 0,
+    'views' => 0,
+    'earnings' => 0
 ];
+try { $stats['live'] = $pdo->query("SELECT COUNT(*) FROM streams WHERE is_live = 1")->fetchColumn() ?: 0; } catch (Exception $e) {}
+try { $stats['views'] = $pdo->query("SELECT COALESCE(SUM(views),0) FROM stream_metrics")->fetchColumn(); } catch (Exception $e) {}
+try { $stats['earnings'] = $pdo->query("SELECT COALESCE(SUM(total_earnings_cents),0) FROM stream_metrics")->fetchColumn(); } catch (Exception $e) {}
 $config = $pdo->query("SELECT * FROM site_config WHERE id = 1")->fetch() ?: ['rate_mode'=>'smartgrid','base_ppm'=>0.0005,'smartgrid_aggressiveness'=>1.5,'hero_mode'=>'auto','hero_loop_url'=>''];
 ?>
 <!DOCTYPE html>

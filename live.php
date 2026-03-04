@@ -5,10 +5,14 @@ $stream_id = (int)($_GET['id'] ?? 0);
 $room = preg_replace('/[^A-Za-z0-9]/', '', $_GET['room'] ?? '');
 $stream = null;
 if ($stream_id) {
-    $stmt = $pdo->prepare("SELECT s.*, u.display_name, m.views, m.subs_count FROM streams s JOIN users u ON s.user_id = u.id LEFT JOIN stream_metrics m ON s.id = m.stream_id WHERE s.id = ? AND s.is_active = 1");
-    $stmt->execute([$stream_id]);
-    $stream = $stmt->fetch();
-    if ($stream) $pdo->prepare("UPDATE stream_metrics SET views = views + 1 WHERE stream_id = ?")->execute([$stream_id]);
+    try {
+        $stmt = $pdo->prepare("SELECT s.*, u.display_name FROM streams s JOIN users u ON s.user_id = u.id WHERE s.id = ?");
+        $stmt->execute([$stream_id]);
+        $stream = $stmt->fetch();
+        if ($stream) {
+            try { $pdo->prepare("UPDATE stream_metrics SET views = views + 1 WHERE stream_id = ?")->execute([$stream_id]); } catch (Exception $e) {}
+        }
+    } catch (Exception $e) {}
 }
 $title = $stream['title'] ?? 'Live Stream';
 $creator = $stream['display_name'] ?? 'Anonymous';

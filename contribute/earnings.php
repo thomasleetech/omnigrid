@@ -8,36 +8,35 @@ $uid = $_SESSION['user_id'];
 $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
 $stmt->execute([$uid]);
 $user = $stmt->fetch();
+if (!$user) { header('Location: ../login.php'); exit; }
 
 $smartGrid = new SmartGrid($pdo);
 
-// Get all user streams with metrics
-$stmt = $pdo->prepare("
-    SELECT s.*,
-           COALESCE(m.views, 0) as views,
-           COALESCE(m.peak_viewers, 0) as peak_viewers,
-           COALESCE(m.subs_count, 0) as subs_count,
-           COALESCE(m.tips_cents, 0) as tips_cents,
-           COALESCE(m.chats_count, 0) as chats_count,
-           COALESCE(m.avg_watch_time, 0) as avg_watch_time,
-           COALESCE(m.total_watch_time, 0) as total_watch_time,
-           COALESCE(m.uptime_percent, 99) as uptime_percent,
-           COALESCE(m.bitrate_avg, 2500) as bitrate_avg,
-           COALESCE(m.new_subs_today, 0) as new_subs_today,
-           COALESCE(m.total_earnings_cents, 0) as total_earnings_cents,
-           COALESCE(m.last_rate_cents, 0) as last_rate_cents
-    FROM streams s
-    LEFT JOIN stream_metrics m ON s.id = m.stream_id
-    WHERE s.user_id = ? AND s.is_active = 1
-    ORDER BY m.total_earnings_cents DESC
-");
-$stmt->execute([$uid]);
-$streams = $stmt->fetchAll();
+// Get all user streams
+try {
+    $stmt = $pdo->prepare("SELECT s.* FROM streams s WHERE s.user_id = ? ORDER BY s.created_at DESC");
+    $stmt->execute([$uid]);
+    $streams = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    $streams = [];
+}
+
+// Try to get earnings per stream from metrics
+foreach ($streams as &$s) {
+    try {
+        $metricsStmt = $pdo->prepare("SELECT COALESCE(total_earnings_cents, 0) as total_earnings_cents FROM stream_metrics WHERE stream_id = ?");
+        $metricsStmt->execute([$s['id']]);
+        $row = $metricsStmt->fetch(PDO::FETCH_ASSOC);
+        $s['total_earnings_cents'] = $row ? (int)$row['total_earnings_cents'] : 0;
+    } catch (Exception $e) {
+        $s['total_earnings_cents'] = 0;
+    }
+}
+unset($s);
 
 // Calculate rates for each stream
 $streamData = [];
 $totalEarnings = 0;
-$totalViews = 0;
 $avgRate = 0;
 $rateCount = 0;
 
@@ -50,7 +49,6 @@ foreach ($streams as $s) {
         'projections' => $proj
     ];
     $totalEarnings += $s['total_earnings_cents'];
-    $totalViews += $s['views'];
     $avgRate += $rate['rate_cents_per_min'];
     $rateCount++;
 }
@@ -124,19 +122,14 @@ body {
 }
 .logo {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 1.25rem;
-    font-weight: 700;
+    font-size: 1.25rem; font-weight: 700;
     margin-bottom: 2rem;
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    text-decoration: none;
-    color: var(--text);
+    display: flex; align-items: center; gap: 0.6rem;
+    text-decoration: none; color: var(--text);
 }
 .logo .icon {
     width: 30px; height: 30px;
-    background: var(--gradient-primary);
-    border-radius: 7px;
+    background: var(--gradient-primary); border-radius: 7px;
     display: flex; align-items: center; justify-content: center;
     font-size: 0.75rem; color: #fff;
     box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
@@ -221,7 +214,6 @@ body {
 }
 .stream-row-main:hover { background: rgba(255,255,255,0.01); }
 .stream-name { font-weight: 600; font-size: 0.95rem; }
-.stream-name .tag { color: var(--primary-light); font-size: 0.8rem; font-weight: 500; display: block; margin-top: 0.1rem; }
 .stream-metric { text-align: right; }
 .stream-metric .val {
     font-family: 'JetBrains Mono', monospace; font-size: 1rem; font-weight: 700;
@@ -375,7 +367,7 @@ body {
                 <div class="icon red"><i class="fa-solid fa-video"></i></div>
             </div>
             <div class="stat-value"><?= count($streams) ?></div>
-            <div class="stat-sub"><?= count(array_filter($streams, fn($s) => $s['is_live'])) ?> live now</div>
+            <div class="stat-sub"><?= count(array_filter($streams, fn($s) => !empty($s['is_live']))) ?> live now</div>
         </div>
     </div>
 
@@ -400,10 +392,7 @@ body {
             ?>
             <div class="stream-row">
                 <div class="stream-row-main" onclick="toggle(<?= $i ?>)">
-                    <div class="stream-name">
-                        <?= htmlspecialchars($s['title']) ?>
-                        <span class="tag"><?= htmlspecialchars($s['vibe_tag'] ?: $s['type']) ?></span>
-                    </div>
+                    <div class="stream-name"><?= htmlspecialchars($s['title']) ?></div>
                     <div class="stream-metric">
                         <div class="val green">$<?= number_format($s['total_earnings_cents'] / 100, 2) ?></div>
                         <div class="lbl">Earned</div>
